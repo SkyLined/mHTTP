@@ -61,11 +61,13 @@ class cHTTPServer(object):
       sRelativeURL = sRelativeURL[1:];
     return "http%s://%s/%s" % (oSelf.__bSecure and "s" or "", oSelf.sAddress, sRelativeURL);
   
-  def fStart(oSelf, foRequestHandler):
+  def fStart(oSelf, foRequestHandler, fNewConnectionCallback = None, fClosedConnectionCallback = None):
     assert not oSelf.__bStopping, \
         "Cannot start after stopping";
     oSelf.__bStarted = True;
     oSelf.__foRequestHandler = foRequestHandler;
+    oSelf.__fNewConnectionCallback = fNewConnectionCallback;
+    oSelf.__fClosedConnectionCallback = fClosedConnectionCallback;
     if oSelf.bDebugOutput: print "Listening on %s" % oSelf.sAddress;
     oSelf.__oServerSocket.listen(1);
     oSelf.__oMainThread = threading.Thread(target = oSelf.__fMain);
@@ -163,6 +165,8 @@ class cHTTPServer(object):
   
   def __fHandleConnection(oSelf, oSocket, sClientIP, uClientPort):
     try:
+      if oSelf.__fNewConnectionCallback:
+        oSelf.__fNewConnectionCallback(oSelf, oSocket, sClientIP, uClientPort);
       oSocket.settimeout(0.1);
       sBuffer = "";
       while 1:
@@ -298,6 +302,8 @@ class cHTTPServer(object):
     finally:
       oSelf.__fCloseConnection(oSocket);
       del oSelf.__dConnection_oThread_by_oSocket[oSocket];
+      if oSelf.__fClosedConnectionCallback:
+        oSelf.__fClosedConnectionCallback(oSelf, oSocket, sClientIP, uClientPort);
   
   def __fCloseConnection(oSelf, oSocket):
     try:
