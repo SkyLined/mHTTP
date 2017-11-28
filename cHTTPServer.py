@@ -3,14 +3,14 @@ from cHTTPRequest import cHTTPRequest;
 from fbExceptionIsReadTimeout import fbExceptionIsReadTimeout;
 
 sLocalFolderPath = os.path.abspath(os.path.dirname(__file__));
-gsKeyFilePath = os.path.join(sLocalFolderPath, "key+cert.pem");
-gsCertFilePath = os.path.join(sLocalFolderPath, "key+cert.pem");
+gsDefaultKeyFilePath = os.path.join(sLocalFolderPath, "key+certificate.pem");
+gsDefaultCertificateFilePath = os.path.join(sLocalFolderPath, "key+certificate.pem");
 
 gnMaxWaitingForRequestTimeInSeconds = 20;
 guPacketSize = 4096;
 
 class cHTTPServer(object):
-  def __init__(oSelf, sIP = None, uPort = None, bSecure = False):
+  def __init__(oSelf, sIP = None, uPort = None, bSecure = False, sKeyFilePath = None, sCertificateFilePath = None):
     oSelf.__bBound = False;
     oSelf.__bTerminated = False;
     oSelf.__oTerminatedLock = threading.Lock();
@@ -20,7 +20,9 @@ class cHTTPServer(object):
     if not uPort:
       uPort = bSecure and 443 or 80;
     oSelf.__bSecure = bSecure and True or False;
+    oSelf.__sKeyFilePath = sKeyFilePath or gsDefaultKeyFilePath;
     oSelf.__bStopping = False;
+    oSelf.__sCertificateFilePath = sCertificateFilePath or gsDefaultCertificateFilePath;
     oSelf.__bStarted = False;
     oSelf.__oServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
 #    oSelf.__oServerSocket.settimeout(None);
@@ -127,8 +129,8 @@ class cHTTPServer(object):
           if oSelf.__bSecure:
             oClientSocket = ssl.wrap_socket(
               sock = oClientSocket,
-              keyfile = gsKeyFilePath,
-              certfile = gsCertFilePath,
+              keyfile = oSelf.__sKeyFilePath,
+              certfile = oSelf.__sCertificateFilePath,
               server_side = True,
             );
         except Exception as oException:
