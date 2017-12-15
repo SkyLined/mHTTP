@@ -4,42 +4,61 @@ from cHTTPRequest import cHTTPRequest;
 
 class cHTTPClient(object):
   def __init__(oSelf):
-    oSelf.__oMainLock = threading.Lock(); # Used to control access to .__doConnectionsToServer_by_sProtocolIPPort
-    oSelf.__doConnectionsToServer_by_sProtocolIPPort = {};
+    oSelf.__oMainLock = threading.Lock(); # Used to control access to .__doConnectionsToServer_by_sProtocolHostPort
+    oSelf.__doConnectionsToServer_by_sProtocolHostPort = {};
     oSelf.bDebugOutput = False;
+    oSelf.__bProxySecure = None;
+    oSelf.__sProxyHost = None;
+    oSelf.__uProxyPort = None;
 
-  def foGetResponseForURL(oSelf, sURL):
-    asProtocolHostPortRelativeURL = sURL.split("/", 3);
-    sProtocol = asProtocolHostPortRelativeURL[0];
-    assert len(asProtocolHostPortRelativeURL) > 2 and sProtocol in ["http:", "https:"], \
+  def fSetProxy(oSelf, sURL):
+    asProtocol_sHostPort = sURL.rstrip("/").split("/");
+    sProtocol = asProtocol_sHostPort[0];
+    assert len(asProtocol_sHostPort) == 3 and sProtocol in ["http:", "https:"], \
         "Bad URL: %s" % sURL;
+    oSelf.__bProxySecure = sProtocol == "https:";
+    asHost_sPort = asProtocol_sHostPort[2].split(":", 1);
+    oSelf.__sProxyHost = asHost_sPort[0];
+    if len(asHost_sPort) == 1:    
+      oSelf.__uProxyPort = bSecure and 443 or 80;
+    else:
+      oSelf.__uProxyPort = long(asHost_sPort[1]);
+
+  def foGetResponseForURL(oSelf, sURL, sMethod = "GET", dHeader_sValue_by_sName = None, sContent = None):
+    asProtocol_s_sHostPort_sRelativeURL = sURL.split("/", 3);
+    if len(asProtocol_s_sHostPort_sRelativeURL) == 3:
+      sProtocol, sEmpty, sHostPort = asProtocol_s_sHostPort_sRelativeURL;
+    else:
+      assert len(asProtocol_s_sHostPort_sRelativeURL) == 4, \
+          "Bad URL: %s" % sURL;
+      sProtocol, sEmpty, sHostPort, sRelativeURL = asProtocol_s_sHostPort_sRelativeURL;
+    sProtocol = asProtocol_s_sHostPort_sRelativeURL[0];
+    assert sProtocol in ["http:", "https:"], \
+        "Bad protocol in URL: %s" % sURL;
     bSecure = sProtocol == "https:";
-    sHostPort = asProtocolHostPortRelativeURL[2];
-    sRelativeURL = len(asProtocolHostPortRelativeURL) == 4 and asProtocolHostPortRelativeURL[3] or "/";
+    sHostPort = asProtocol_s_sHostPort_sRelativeURL[2];
+    sRelativeURL = len(asProtocol_s_sHostPort_sRelativeURL) == 4 and asProtocol_s_sHostPort_sRelativeURL[3] or "/";
     oHTTPRequest = cHTTPRequest(
       sMethod = "GET",
       sURL = sRelativeURL,
-      sHTTPVersion = "HTTP/1.1",
-      dHeader_sValue_by_sName = {
-        "Accept": "*/*",
-        "Accept-Encoding": "gzip, deflate",
-        "Connection": "keep-alive",
-        "Content-Length": 0,
-        "Host": sHostPort,
-      },
-      sBody = "",
+      dHeader_sValue_by_sName = dHeader_sValue_by_sName,
+      sContent = sContent,
     );
-    return oSelf.foGetResponseForRequest(oHTTPRequest, bSecure = bSecure);
+    oHTTPRequest.fSetHeaderValue("Host", sHostPort);
+    asHost_sPort = sHostPort.split(":", 1);
+    sHost = sHostPort[0];
+    uPort = len(sHostPort) == 2 and long(sHostPort[1]);
+    return oSelf.foGetResponseForRequest(oHTTPRequest, sHost = sHost, uPort = uPort, bSecure = bSecure);
   
-  def foGetResponseForRequest(oSelf, oHTTPRequest, sIP = None, uPort = None, bSecure = False):
+  def foGetResponseForRequest(oSelf, oHTTPRequest, sHost = None, uPort = None, bSecure = False):
     # NOTE: There are no checks performed on the server's certificate; it could be self-signed and/or completely
     # invalid.
-    if sIP is None or uPort is None:
+    if sHost is None or uPort is None:
       if type(oHTTPRequest) in (str, unicode):
         # We cannot find out what server to connect to from a string request, but we can use the default port number
         # if it's not specified:
-        assert sIP, \
-          "You must specify an IP address to send the request to.";
+        assert sHost, \
+          "You must specify a host to send the request to.";
         uPort = bSecure and 443 or 80;
       else:
         # We can parse the "Host" request header to find out what server to connect to and what port to use. If the
@@ -59,20 +78,28 @@ class cHTTPClient(object):
           sHostName = sHostNameAndOptionalPort;
           if uPort is None:
             uPort = bSecure and 443 or 80;
-        if sIP is None:
-          sIP = socket.gethostbyname(sHostName);
-          assert sIP, \
+        if sHost is None:
+          sHost = socket.gethostbyname(sHostName);
+          assert sHost, \
               "Unknown hostname %s" % sHostName;
-    # We will reuse connections to the same server (identified by IP address, port and whether or not the connection
+    sProtocolHostPort = "http%s://%s:%d" % (bSecure and "s" or "", sHost, uPort);
+
+    if oSelf.__bProxySecure is not None:
+      oHTTPRequest = oHTTPRequest.foClone();
+      oHTTPRequest.sURL = sProtocolHostPort + oHTTPRequest.sURL;
+      bSecure = oSelf.__bProxySecure;
+      sHost = oSelf.__sProxyHost;
+      uPort = oSelf.__uProxyPort;
+      sProtocolHostPort = "http%s://%s:%d" % (bSecure and "s" or "", sHost, uPort);
+    # We will reuse connections to the same server (identified by host name, port and whether or not the connection
     # is secure).
-    sProtocolIPPort = "http%s://%s:%d" % (bSecure and "s" or "", sIP, uPort);
     oSelf.__oMainLock.acquire();
     try:
-      oConnectionsToServer = oSelf.__doConnectionsToServer_by_sProtocolIPPort.get(sProtocolIPPort);
+      oConnectionsToServer = oSelf.__doConnectionsToServer_by_sProtocolHostPort.get(sProtocolHostPort);
       if oConnectionsToServer is None:
         # No connections to this server have been made before: create a new object in which to store them:
-        oConnectionsToServer = oSelf.__doConnectionsToServer_by_sProtocolIPPort[sProtocolIPPort] = \
-            cConnectionsToServer(sIP, uPort, bSecure, oSelf.bDebugOutput);
+        oConnectionsToServer = oSelf.__doConnectionsToServer_by_sProtocolHostPort[sProtocolHostPort] = \
+            cConnectionsToServer(sHost, uPort, bSecure, oSelf.bDebugOutput);
     finally:
       oSelf.__oMainLock.release();
     return oConnectionsToServer.foGetResponseForRequest(oHTTPRequest);
