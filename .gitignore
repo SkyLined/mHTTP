@@ -5,3 +5,6 @@
 *.user
 *.filters
 *.pyc
+cBrotli
+OpenSSL
+Certificates

@@ -1,317 +1,371 @@
-import os, socket, ssl, threading, time;
-from cHTTPRequest import cHTTPRequest;
-from fbExceptionIsReadTimeout import fbExceptionIsReadTimeout;
+import os, socket, ssl, time;
+from .cHTTPConnection import cHTTPConnection;
+from .cHTTPResponse import cHTTPResponse;
+from .cSSLContext import cSSLContext;
+from .cURL import cURL;
+from .fbSocketExceptionIsTimeout import fbSocketExceptionIsTimeout;
+from mDebugOutput import cWithDebugOutput;
+from mMultiThreading import cLock, cThread, cWithCallbacks;
 
-sLocalFolderPath = os.path.abspath(os.path.dirname(__file__));
-gsDefaultKeyFilePath = os.path.join(sLocalFolderPath, "key+certificate.pem");
-gsDefaultCertificateFilePath = os.path.join(sLocalFolderPath, "key+certificate.pem");
-
-gnMaxWaitingForRequestTimeInSeconds = 20;
-guPacketSize = 4096;
-
-class cHTTPServer(object):
-  def __init__(oSelf, sIP = None, uPort = None, bSecure = False, sKeyFilePath = None, sCertificateFilePath = None):
+class cHTTPServer(cWithCallbacks, cWithDebugOutput):
+  nDefaultWaitForRequestTimeoutInSeconds = 20;
+  def __init__(oSelf, sHostName = None, uPort = None, oSSLContext = None, nWaitForRequestTimeoutInSeconds = None):
     oSelf.__bBound = False;
-    oSelf.__bTerminated = False;
-    oSelf.__oTerminatedLock = threading.Lock();
-    oSelf.__oTerminatedLock.acquire(); # Locked from the start, unlocked when the server is terminated.
-    if not sIP:
-      sIP = socket.gethostbyname(socket.gethostname());
-    if not uPort:
-      uPort = bSecure and 443 or 80;
-    oSelf.__bSecure = bSecure and True or False;
-    oSelf.__sKeyFilePath = sKeyFilePath or gsDefaultKeyFilePath;
-    oSelf.__bStopping = False;
-    oSelf.__sCertificateFilePath = sCertificateFilePath or gsDefaultCertificateFilePath;
-    oSelf.__bStarted = False;
+    if sHostName is None:
+      sHostName = socket.gethostbyname(socket.gethostname());
+    if uPort is None:
+      uPort = oSSLContext and 443 or 80;
+    oSelf.__oURL = cURL(sProtocol = "https" if oSSLContext else "http", sHostName = sHostName, uPort = uPort);
+    oSelf.__oSSLContext = oSSLContext;
+    oSelf.__nWaitForRequestTimeoutInSeconds = nWaitForRequestTimeoutInSeconds or oSelf.nDefaultWaitForRequestTimeoutInSeconds;
+    
+    oSelf.__bServerSocketClosed = False;
+    txAddress = (oSelf.__oURL.sHostName, oSelf.__oURL.uPort);
+    oClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
+#    try:
+#      oClientSocket.connect(txAddress);
+#    except Exception as oException:
+#      print repr(oException);
+#    else:
+#      raise AssertionError("%s:%d is already in use" % txAddress);
+
     oSelf.__oServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
-#    oSelf.__oServerSocket.settimeout(None);
-#    oSelf.__oServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0);
-    oSelf.__oServerSocket.settimeout(0.1);
-    oSelf.__oServerSocket.bind((sIP, uPort));
+#    oSelf.__oServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1);
+    oSelf.__oServerSocket.settimeout(0);
+    oSelf.__oServerSocket.bind(txAddress);
     oSelf.__bBound = True;
-    oSelf.__dConnection_oThread_by_oSocket = {};
-    oSelf.bDebugOutput = False;
+    oSelf.__oMainLock = cLock("%s.__oMainLock" % oSelf.__class__.__name__);
+    oSelf.__aoOpenConnections = [];
+    oSelf.__aoRunningThreads = [];
+
+    oSelf.__bStarted = False;
+    oSelf.__bStopping = False;
+    oSelf.__bTerminated = False;
+    oSelf.__oTerminatedLock = cLock("%s.__oTerminatedLock" % oSelf.__class__.__name__, bLocked = True);
+    
+    oSelf.fAddEvents("started", "new connection", "request received", "response sent", "request received and response sent", "connection terminated", "terminated");
   
   def __del__(oSelf):
     if oSelf.__bBound and not oSelf.__bTerminated:
       try:
+        oSelf.__oServerSocket.shutdown();
+      except Exception:
+        pass;
+      try:
         oSelf.__oServerSocket.close();
       except Exception:
         pass;
-      for oSocket in oSelf.__dConnection_oThread_by_oSocket.keys():
-        oSelf.__fCloseConnection(oSocket);
+      for oConnection in oSelf.__aoOpenConnections:
+        oConnection.fTerminate();
       raise AssertionError("cHTTPServer instance deleted without being terminated");
   
+  def __fCheckForTermination(oSelf):
+    oSelf.fEnterFunctionOutput();
+    try:
+      if oSelf.__bTerminated:
+        return oSelf.fExitFunctionOutput("Already terminated");
+      if not oSelf.__bStopping:
+        return oSelf.fExitFunctionOutput("Not stopping");
+      oSelf.__oMainLock.fAcquire();
+      try:
+        uOpenConnections = len(oSelf.__aoOpenConnections);
+        uRunningThreads = len(oSelf.__aoRunningThreads);
+        bTerminated = uRunningThreads == 0 and uOpenConnections == 0 and not oSelf.__bTerminated;
+        if bTerminated: oSelf.__bTerminated = True;
+      finally:
+        oSelf.__oMainLock.fRelease();
+      if bTerminated:
+        oSelf.__oTerminatedLock.fRelease();
+        oSelf.fFireCallbacks("terminated");
+        return oSelf.fExitFunctionOutput("Terminated");
+      return oSelf.fExitFunctionOutput("Not terminated; %d connections, %d threads." % (uOpenConnections, uRunningThreads));
+    except Exception as oException:
+      oSelf.fxRaiseExceptionOutput(oException);
+      raise;
+
   @property
   def bTerminated(oSelf):
     return oSelf.__bTerminated;
 
   @property
-  def bSecure(oSelf):
-    return oSelf.__bSecure;
-  @property
   def sAddress(oSelf):
     return "%s:%d" % oSelf.__oServerSocket.getsockname();
+  @property
+  def bSecure(oSelf):
+    return oSelf.__oURL.bSecure;
   
-  def fsGetURL(oSelf, sRelativeURL = None):
-    if not sRelativeURL:
-      sRelativeURL = "";
-    elif sRelativeURL[0] == "/":
-      sRelativeURL = sRelativeURL[1:];
-    return "http%s://%s/%s" % (oSelf.__bSecure and "s" or "", oSelf.sAddress, sRelativeURL);
+  @property
+  def sURL(oSelf):
+    return oSelf.fsGetURL();
+  def fsGetURL(oSelf, sPath = None, sQuery = None, sFragment = None):
+    return "".join([
+      oSelf.__oURL.sBase,
+      "%s%s" % ("/" if sPath and sPath[:1] != "/" else "", sPath or ""),
+      ("?%s" % sQuery) if sQuery else "",
+      ("#%s" % sFragment) if sFragment else "",
+    ]);
   
-  def fStart(oSelf, foRequestHandler, fNewConnectionCallback = None, fClosedConnectionCallback = None):
-    assert not oSelf.__bStopping, \
-        "Cannot start after stopping";
-    oSelf.__bStarted = True;
-    oSelf.__foRequestHandler = foRequestHandler;
-    oSelf.__fNewConnectionCallback = fNewConnectionCallback;
-    oSelf.__fClosedConnectionCallback = fClosedConnectionCallback;
-    if oSelf.bDebugOutput: print "Listening on %s" % oSelf.sAddress;
-    oSelf.__oServerSocket.listen(1);
-    oSelf.__oMainThread = threading.Thread(target = oSelf.__fMain);
-    oSelf.__oMainThread.daemon = True;
-    oSelf.__oMainThread.start();
+  def fStart(oSelf, foRequestHandler):
+    oSelf.fEnterFunctionOutput(foRequestHandler = foRequestHandler);
+    try:
+      oSelf.__oMainLock.fAcquire();
+      try:
+        assert not oSelf.__bStopping, \
+            "Cannot start after stopping";
+        oSelf.__bStarted = True;
+        oSelf.__foRequestHandler = foRequestHandler;
+        oSelf.fStatusOutput("Starting server socket listening on %s..." % oSelf.sAddress);
+        oSelf.__oServerSocket.listen(1);
+        oSelf.__oMainThread = cThread(oSelf.__fMain);
+        oSelf.__oMainThread.fStart();
+      finally:
+        oSelf.__oMainLock.fRelease();
+      oSelf.fExitFunctionOutput();
+    except Exception as oException:
+      oSelf.fxRaiseExceptionOutput(oException);
+      raise;
 
   def fStop(oSelf):
-    # Stop accepting new connections, close all connections that are not in the middle of reading a request or sending
-    # a response, send "connection: close" header with all future responses and close all connections after responses
-    # have been sent. (Effectively: handle any current requests, but stop accepting new ones and stop the server once
-    # all current requests have been handled.
-    if oSelf.bTerminated:
-      return;
-    if not oSelf.__bStopping:
+    oSelf.fEnterFunctionOutput();
+    try:
+      # Stop accepting new connections, close all connections that are not in the middle of reading a request or sending
+      # a response, send "connection: close" header with all future responses and close all connections after responses
+      # have been sent. (Effectively: handle any current requests, but stop accepting new ones and stop the server once
+      # all current requests have been handled.
+      if oSelf.bTerminated:
+        return oSelf.fExitFunctionOutput("Already terminated");
+      if oSelf.__bStopping:
+        return oSelf.fExitFunctionOutput("Already stopping");
       oSelf.__bStopping = True;
+      oSelf.__oMainLock.fAcquire();
       try:
-        oSelf.__oServerSocket.close();
-      except:
-        pass;
+        if not oSelf.__bServerSocketClosed:
+          oSelf.fStatusOutput("Closing server socket...");
+          try:
+            oSelf.__oServerSocket.shutdown();
+          except:
+            pass;
+          try:
+            oSelf.__oServerSocket.close();
+          except:
+            pass;
+          oSelf.__bServerSocketClosed = True;
+        aoOpenConnections = oSelf.__aoOpenConnections[:];
+      finally:
+        oSelf.__oMainLock.fRelease();
+      if aoOpenConnections:
+        # Stop all connections
+        for oConnection in oSelf.__aoOpenConnections:
+          oConnection.fStop();
+      else:
+        # If there were no connections to clients after we set bStopping to True, we've stopped. However, we
+        # still need to report this, so we call __fCheckForTermination which will detect and report it.
+        oSelf.__fCheckForTermination();
+      oSelf.fExitFunctionOutput("Stopping");
+    except Exception as oException:
+      oSelf.fxRaiseExceptionOutput(oException);
+      raise;
   
   def fTerminate(oSelf):
-    if oSelf.__bTerminated:
-      return;
-    oSelf.__bStopping = True;
+    oSelf.fEnterFunctionOutput();
     try:
-      oSelf.__oServerSocket.close();
-    except:
-      pass;
-    if not oSelf.__bStarted:
-      oSelf.__bStopping = True;
-      oSelf.__bTerminated = True;
-      return;
-    # No new connections can be made, so the list of sockets cannot grow. Closing all sockets in the list should
-    # result in termination of the server.
-    aoSockets = oSelf.__dConnection_oThread_by_oSocket.keys()[:];
-    for oSocket in aoSockets:
+      if oSelf.__bTerminated:
+        return oSelf.fExitFunctionOutput("Already terminated");
+      oSelf.__oMainLock.fAcquire();
       try:
-        oSocket.close();
-      except:
-        pass;
-    oSelf.fWait();
+        oSelf.__bStopping = True;
+        try:
+          oSelf.__oServerSocket.shutdown();
+        except Exception:
+          pass;
+        try:
+          oSelf.__oServerSocket.close();
+        except:
+          pass;
+        oSelf.__bServerSocketClosed = True;
+        if not oSelf.__bStarted:
+          oSelf.__bTerminated = True;
+          return oSelf.fExitFunctionOutput("Never started");
+        aoOpenConnections = oSelf.__aoOpenConnections[:];
+      finally:
+        oSelf.__oMainLock.fRelease();
+      if aoOpenConnections:
+        oSelf.fStatusOutput("Terminating connections from clients...");
+        for oOpenConnection in aoOpenConnections:
+          oOpenConnection.fTerminate();
+      oSelf.fStatusOutput("Waiting for termination...");
+      oSelf.fWait();
+      return oSelf.fExitFunctionOutput("Terminated");
+    except Exception as oException:
+      oSelf.fxRaiseExceptionOutput(oException);
+      raise;
 
   def fWait(oSelf):
-    assert oSelf.__bStarted, \
-        "You must start a server before you can wait for it."
-    oSelf.__oTerminatedLock.acquire(); # Wait for this lock to be released
-    oSelf.__oTerminatedLock.release(); # (release it again to maintain this state).
+    oSelf.fEnterFunctionOutput();
+    try:
+      assert oSelf.__bStarted, \
+          "You must start a server before you can wait for it."
+      oSelf.__oTerminatedLock.fWait();
+      return oSelf.fExitFunctionOutput();
+    except Exception as oException:
+      oSelf.fxRaiseExceptionOutput(oException);
+      raise;
+  
+  def fbWait(oSelf, nTimeoutInSeconds = 0):
+    oSelf.fEnterFunctionOutput(nTimeoutInSeconds = nTimeoutInSeconds);
+    try:
+      assert oSelf.__bStarted, \
+          "You must start a server before you can wait for it."
+      oSelf.__oTerminatedLock.fbWait(nTimeoutInSeconds = nTimeoutInSeconds);
+      return oSelf.fExitFunctionOutput();
+    except Exception as oException:
+      oSelf.fxRaiseExceptionOutput(oException);
+      raise;
   
   def __fMain(oSelf):
+    oSelf.fEnterFunctionOutput();
     try:
-      while 1:
+      oThread = cThread.foGetCurrent();
+      oSelf.fFireCallbacks("started");
+      oSelf.fStatusOutput("Waiting for first incoming connection...");
+      while not oSelf.__bServerSocketClosed and not oSelf.__bStopping:
         try:
           (oClientSocket, (sClientIP, uClientPort)) = oSelf.__oServerSocket.accept();
           oClientSocket.fileno(); # will throw "bad file descriptor" if the server socket was closed
-        except socket.timeout, oTimeout:
-          continue;
-        except socket.error:
-          break;
-        if oSelf.bDebugOutput: print "New connection from %s:%d" % (sClientIP, uClientPort);
-        try:
-          if oSelf.__bSecure:
-            oClientSocket = ssl.wrap_socket(
-              sock = oClientSocket,
-              keyfile = oSelf.__sKeyFilePath,
-              certfile = oSelf.__sCertificateFilePath,
-              server_side = True,
-            );
-        except Exception as oException:
-          if oSelf.bDebugOutput: print "SSL handshake with %s:%d failed: %s(%s)" % \
-              (sClientIP, uClientPort, oException.__class__.__name__, oException.message);
-          oSelf.__fCloseConnection(oClientSocket);
+        except socket.timeout:
+          pass;
+        except socket.error as oException:
+          if not fbSocketExceptionIsTimeout(oException):
+            oSelf.fStatusOutput("Exception: %s" % repr(oException));
+            oSelf.fTerminate();
+            break;
         else:
+          oSelf.fStatusOutput("New connection from %s:%d..." % (sClientIP, uClientPort));
+          oConnectionFromClient = cHTTPConnection(oClientSocket);
+          oSelf.__oMainLock.fAcquire();
           try:
-            oThread = threading.Thread(target = oSelf.__fHandleConnection, args=(oClientSocket, sClientIP, uClientPort));
-            oThread.daemon = True;
-            oSelf.__dConnection_oThread_by_oSocket[oClientSocket] = oThread;
-            oThread.start();
-          except Exception as oException:
-            if oSelf.bDebugOutput: print "Create thread failed: %s(%s)" % (oException.__class__.__name__, oException.message);
-            oSelf.__fCloseConnection(oClientSocket);
-    finally:
-      try: 
-        oSelf.__oServerSocket.close();
-      except:
-        pass;
-      oSelf.__bStopping = True;
-      aoThreads = oSelf.__dConnection_oThread_by_oSocket.values()[:];
-      for oThread in aoThreads:
+            oSelf.__aoOpenConnections.append(oConnectionFromClient);
+            oConnectionFromClient.fAddCallback("terminated", oSelf.__fHandleTerminatedCallbackFromConnection);
+            oSelf.fStatusOutput("Starting new thread to handle connection from %s:%d..." % (sClientIP, uClientPort));
+            oThread = cThread(oSelf.__fConnectionThread, oConnectionFromClient, sClientIP, uClientPort);
+            oSelf.__aoRunningThreads.append(oThread);
+            oThread.fStart();
+          finally:
+            oSelf.__oMainLock.fRelease();
+          oSelf.fFireCallbacks("new connection", oConnectionFromClient);
+          oSelf.fStatusOutput("Waiting for next incoming connection...");
+      assert oSelf.__bStopping, \
+          "PC LOAD LETTER";
+      if not oSelf.__bServerSocketClosed:
+        oSelf.fStatusOutput("Closing server socket...");
         try:
-          oThread.join();
+          oSelf.__oServerSocket.shutdown();
+        except Exception:
+          pass;
+        try: 
+          oSelf.__oServerSocket.close();
         except:
           pass;
-      oSelf.__bTerminated = True;
-      oSelf.__oTerminatedLock.release(); # Releasing this clock allows fWait to return.
+        oSelf.__bServerSocketClosed = True;
+      oSelf.fExitFunctionOutput();
+    except Exception as oException:
+      oSelf.fxRaiseExceptionOutput(oException);
+      raise;
   
-  def __fHandleConnection(oSelf, oSocket, sClientIP, uClientPort):
+  def __fHandleTerminatedCallbackFromConnection(oSelf, oConnectionFromClient):
+    oSelf.__oMainLock.fAcquire();
     try:
-      if oSelf.__fNewConnectionCallback:
-        oSelf.__fNewConnectionCallback(oSelf, oSocket, sClientIP, uClientPort);
-      oSocket.settimeout(0.1);
-      sBuffer = "";
-      while 1:
-        # Attempt to read a request from the connection
-        nStartedWaitingForRequestTimeInSeconds = time.time();
-        sMethod, sURL, sHTTPVersion = None, None, None;
-        sLastHeaderName = None;
-        dHeader_sValue_by_sName = {};
-        bStartOfHeadersFound = False;
-        bEndOfHeadersFound = False;
-        while not bEndOfHeadersFound:
-          uScanStartIndex = 0;
-          while 1: # read into buffer until at least one CRLF is found.
-            uCRLFIndex = sBuffer.find("\r\n", uScanStartIndex);
-            if uCRLFIndex != -1:
-              break;
-            while 1:
-              if not bStartOfHeadersFound and oSelf.__bStopping:
-                  # No data for next request received yet and soft-terminating: close connection.
-                return;
-              if time.time() - nStartedWaitingForRequestTimeInSeconds > gnMaxWaitingForRequestTimeInSeconds:
-                return;
-              try:
-                sPacket = oSocket.recv(guPacketSize);
-              except Exception as oException:
-                if fbExceptionIsReadTimeout(oException):
-                  continue;
-                return;
-              else:
-                if sPacket:
-                  break;
-            bStartOfHeadersFound = True;
-            uScanStartIndex = max(len(sBuffer) - 1, 0);
-            sBuffer += sPacket;
-          while uCRLFIndex != -1: # remove lines from start of buffer until no more CRLFs or an empty line are found
-            sLine = sBuffer[:uCRLFIndex];
-            sBuffer = sBuffer[uCRLFIndex + 2:];
-            if sLine == "": # empty line: end of headers
-              bEndOfHeadersFound = True;
-              break;
-            elif sHTTPVersion is None: # first line: "[method] [url] [http version]"
-              as_Method_URL_HTTPVersion = sLine.split(" ");
-              if len(as_Method_URL_HTTPVersion) != 3:
-                return; # Request first line is invalid: drop connection.
-              sMethod, sURL, sHTTPVersion = as_Method_URL_HTTPVersion;
-              sMethod = sMethod.upper();
-              sHTTPVersion = sHTTPVersion.upper();
-              if sMethod not in ["GET", "HEAD", "POST"]:
-                return; # Request first line method is not GET or POST: drop connection.
-              if sHTTPVersion not in ["HTTP/1.0", "HTTP/1.1"]:
-                return; # Request first line HTTP version is not 1.0 or 1.1: drop connection.
-            elif sLine[0] in " \t": # header continuation
-              if sLastHeaderName is None:
-                return; # First header line is continuation: drop connection.
-              sHeaderValue = sLine.strip();
-              dHeader_sValue_by_sName[sLastHeaderName] += " " + sHeaderValue;
-            else: # header
-              asHeaderNameAndValue = sLine.split(":", 1);
-              if len(asHeaderNameAndValue) != 2:
-                return; # Header line has no colon: drop connection.
-              sHeaderName, sHeaderValue = asHeaderNameAndValue;
-              sHeaderValue = sHeaderValue.strip();
-              if sHeaderName in dHeader_sValue_by_sName: # multiple values are concatinated
-                dHeader_sValue_by_sName[sHeaderName] += " " + sHeaderValue;
-              else:
-                dHeader_sValue_by_sName[sHeaderName] = sHeaderValue;
-              sLastHeaderName = sHeaderName;
-            uCRLFIndex = sBuffer.find("\r\n");
-          # continue "while not bEndOfHeadersFound" loop
-        # The first line and headers are now all read
-        # Check if the client requested a "100 Continue" response:
-        for (sName, sValue) in dHeader_sValue_by_sName.items():
-          if sName.lower() == "expect" and sValue.lower() == "100-continue":
-            # We don't actually check the headers; we just send a "100 Continue" response to the client:
-            try:
-              oSocket.send(str(cHTTPResponse(sHTTPVersion, 100, "Continue", {}, "")));
-            except:
-              return; # The connection was closed.
-            break;
-        # Read body if present
-        for (sName, sValue) in dHeader_sValue_by_sName.items():
-          if sName.lower() == "content-length":
-            try:
-              uContentLength = long(sValue);
-            except ValueError:
-              return; # missing or invalid content-length: drop connection.
-            while len(sBuffer) < uContentLength:
-              while 1:
-                if time.time() - nStartedWaitingForRequestTimeInSeconds > gnMaxWaitingForRequestTimeInSeconds:
-                  return;
-                try:
-                  sData = oSocket.recv(uContentLength - len(sBuffer));
-                except Exception as oException:
-                  if fbExceptionIsReadTimeout(oException):
-                    continue;
-                  return; # Connection dropped.
-                else:
-                  break;
-              sBuffer += sData;
-            sBody = sBuffer[:uContentLength];
-            sBuffer = sBuffer[uContentLength:];
-            break;
-        else:
-          sBody = None;
-        
-        # Construct an object that represents the request
-        oHTTPRequest = cHTTPRequest(sMethod, sURL, sHTTPVersion, dHeader_sValue_by_sName, sBody);
-        if oSelf.bDebugOutput: print "New request from %s:%d => %s" % (sClientIP, uClientPort, oHTTPRequest);
-        oHTTPResponse = oSelf.__foRequestHandler(oSelf, oHTTPRequest);
-        # Generate a response string from the response object
-        if oHTTPResponse is None:
-          sResponse = "";
-          bCloseAfterSendingResponse = True;
-        elif type(oHTTPResponse) == str:
-          sResponse = oHTTPResponse;
-          bCloseAfterSendingResponse = True;
-        else:
-          if oSelf.__bStopping:
-            oHTTPResponse.fsSetHeaderValue("Connection", "close");
-          if sMethod == "HEAD":
-            oHTTPResponse.sBody = "";
-          sResponse = oHTTPResponse.fsToString();
-          bCloseAfterSendingResponse = oHTTPResponse.fsGetHeaderValue("Connection").lower() != "keep-alive";
-        if oSelf.bDebugOutput: print "Sending %d bytes response to %s:%d" % (len(sResponse), sClientIP, uClientPort);
-        # Send the response to the client
-        try:
-          oSocket.send(sResponse);
-        except:
-          return; # The connection was closed.
-        if bCloseAfterSendingResponse:
-          return;
-      # continue "while 1" loop
+      oSelf.__aoOpenConnections.remove(oConnectionFromClient);
     finally:
-      oSelf.__fCloseConnection(oSocket);
-      del oSelf.__dConnection_oThread_by_oSocket[oSocket];
-      if oSelf.__fClosedConnectionCallback:
-        oSelf.__fClosedConnectionCallback(oSelf, oSocket, sClientIP, uClientPort);
+      oSelf.__oMainLock.fRelease();
+    oSelf.__fCheckForTermination();
+    oSelf.fFireCallbacks("connection terminated", oConnectionFromClient);
   
-  def __fCloseConnection(oSelf, oSocket):
+  def __fConnectionThread(oSelf, oConnectionFromClient, sClientIP, uClientPort):
+    oSelf.fEnterFunctionOutput();
     try:
-      oSocket.shutdown(socket.SHUT_RDWR);
-    except:
-      pass;
-    try:
-      oSocket.close();
-    except:
-      pass;
+      oThread = cThread.foGetCurrent();
+      try:
+        if oSelf.bSecure:
+          oSelf.fStatusOutput("Negotiating secure socket for %s..." % oConnectionFromClient.fsToString());
+          assert oConnectionFromClient.fbStartTransaction(oSelf.__nWaitForRequestTimeoutInSeconds), \
+              "Cannot start transaction";
+          try:
+            try:
+              oConnectionFromClient.fWrapInSSLContext(oSelf.__oSSLContext);
+            except oConnectionFromClient.cTransactionTimeoutException:
+              return oSelf.fExitFunctionOutput("Transaction timeout while negotiating a secure connection with client %s." % oConnectionFromClient.fsToString());
+            except oConnectionFromClient.cConnectionClosedException:
+              return oSelf.fExitFunctionOutput("Connection closed while negotiating a secure connection with client %s." % oConnectionFromClient.fsToString());
+            except oSelf.__oSSLContext.cSSLException as oException:
+              return oSelf.fExitFunctionOutput("Could not negotiate a secure connection with the client. (error: %s)" % repr(oException));
+          finally:
+            oConnectionFromClient.fEndTransaction();
+        while not oSelf.__bStopping:
+          oSelf.fStatusOutput("Reading request from %s..." % oConnectionFromClient.fsToString());
+          if not oConnectionFromClient.fbStartTransaction(oSelf.__nWaitForRequestTimeoutInSeconds):
+            assert not oConnectionFromClient.bOpen, \
+                "wut";
+            oSelf.fStatusOutput("Connection %s closed." % oConnectionFromClient.fsToString());
+            break;
+          try:
+            try:
+              oRequest = oConnectionFromClient.foReceiveRequest();
+            except oConnectionFromClient.cInvalidHTTPMessageException:
+              oSelf.fStatusOutput("Invalid request from %s." % oConnectionFromClient.fsToString());
+              break;
+            except oConnectionFromClient.cTransactionTimeoutException:
+              oSelf.fStatusOutput("Reading request from %s timed out; terminating connection..." % oConnectionFromClient.fsToString());
+              break;
+            if not oRequest:
+              # The client closed the connection gracefully between requests.
+              oSelf.fStatusOutput("Connection closed before request from %s was received." % oConnectionFromClient.fsToString());
+              break;
+            oSelf.fFireCallbacks("request received", oConnectionFromClient, oRequest);
+            # Have the request handler generate a response to the request object
+            oResponse = oSelf.__foRequestHandler(oSelf, oConnectionFromClient, oRequest);
+            assert isinstance(oResponse, cHTTPResponse), \
+                "Request handler must return a cHTTPResponse, got %s" % oResponse.__class__.__name__;
+            if oSelf.__bStopping:
+              oResponse.fsSetHeaderValue("Connection", "close");
+            # Send the response to the client
+            oSelf.fStatusOutput("Sending response to %s..." % oConnectionFromClient.fsToString());
+            try:
+              oConnectionFromClient.fSendResponse(oResponse);
+            except oConnectionFromClient.cTransactionTimeoutException:
+              oSelf.fStatusOutput("Transaction timeout while sending response to %s." % oConnectionFromClient.fsToString());
+              break;
+            except oConnectionFromClient.cConnectionClosedException:
+              oSelf.fStatusOutput("Connection closed while sending response to %s." % oConnectionFromClient.fsToString());
+              break;
+          finally:
+            oConnectionFromClient.fEndTransaction();
+          oSelf.fFireCallbacks("response sent", oConnectionFromClient, oResponse);
+          oSelf.fFireCallbacks("request received and response sent", oConnectionFromClient, oRequest, oResponse);
+          if oResponse.fxGetMetaData("bStopHandlingHTTPMessages"):
+            break;
+          # continue "while 1" loop
+        oSelf.fExitFunctionOutput();
+      finally:
+        oSelf.__oMainLock.fAcquire();
+        try:
+          oSelf.__aoRunningThreads.remove(oThread);
+        finally:
+          oSelf.__oMainLock.fRelease();
+        oSelf.__fCheckForTermination();
+    except Exception as oException:
+      oSelf.fxRaiseExceptionOutput(oException);
+      raise;
   
+  def fsToString(oSelf):
+    if oSelf.__bTerminated:
+      sDetails = "terminated";
+    else:
+      asAttributes = [s for s in [
+        oSelf.__oSSLContext and "secure" or "",
+        oSelf.__bStopping and "stopping" or "",
+        oSelf.__bServerSocketClosed and "closed" or "",
+        "%s connections" % (len(oSelf.__aoOpenConnections) if oSelf.__aoOpenConnections else "no"),
+      ] if s];
+      sDetails = oSelf.__oURL.sAbsolute + (" (%s)" % ", ".join(asAttributes) if asAttributes else "");
+    return "%s{%s}" % (oSelf.__class__.__name__, sDetails);
