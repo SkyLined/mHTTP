@@ -52,10 +52,13 @@ class cHTTPRequest(iHTTPMessage):
       oSelf._fsBodyStr(),
     ] if s]);
   
-  def foCreateReponse(oSelf, uStatusCode, sMediaType, sContent = None, asContentChunks = None):
+  def foCreateReponse(oSelf, uStatusCode, sMediaType = None, sBody = None, sHTTPVersion = None, sReasonPhrase = None, dHeader_sValue_by_sName = None, sData = None, asBodyChunks = None, dxMetaData = None):
+    if sHTTPVersion is None:
+      sHTTPVersion = oSelf.sHTTPVersion;
     from cHTTPResponse import cHTTPResponse;
     if sMediaType is None:
-      sMediaType = "text/plain";
+      if sBody is not None:
+        sMediaType = "text/plain";
     else:
       cType = type(sMediaType);
       if cType == unicode:
@@ -66,17 +69,23 @@ class cHTTPRequest(iHTTPMessage):
       else:
         assert cType == str, \
             "sMediaType must be a string, not %s" % repr(sMediaType);
-    dHeader_sValue_by_sName = {
-      "Content-Type": sMediaType,
-      "Cache-Control": "no-cache, must-revalidate",
-      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
-      "Pragma": "no-cache",
-    };
+    if dHeader_sValue_by_sName is None:
+      dHeader_sValue_by_sName = iHTTPMessage.ddDefaultHeader_sValue_by_sName_by_sHTTPVersion[sHTTPVersion].copy();
+    if sMediaType:
+      dHeader_sValue_by_sName["Content-Type"] =  sMediaType;
     sConnectionHeaderValue = oSelf.fsGetHeaderValue("Connection");
     if sConnectionHeaderValue:
       dHeader_sValue_by_sName["Connection"] = sConnectionHeaderValue.strip();
-    sReasonPhrase = None;
-    return cHTTPResponse(oSelf.sHTTPVersion, uStatusCode, sReasonPhrase, dHeader_sValue_by_sName, sContent, asContentChunks);
+    return cHTTPResponse(
+      sHTTPVersion = sHTTPVersion,
+      uStatusCode = uStatusCode,
+      sReasonPhrase = sReasonPhrase,
+      dHeader_sValue_by_sName = dHeader_sValue_by_sName,
+      sBody = sBody,
+      sData = sData,
+      asBodyChunks = asBodyChunks,
+      dxMetaData = dxMetaData,
+    );
   
   def fsToString(oSelf):
     return "%s{%s %s %s}" % (oSelf.__class__.__name__, oSelf.sMethod, oSelf.sURL, oSelf.sHTTPVersion);
