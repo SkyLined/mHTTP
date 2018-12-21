@@ -19,17 +19,22 @@ def fsASCII(sData, sDataTypeDescription):
   except:
     raise AssertionError("%s cannot contain Unicode characters: %s" % (sDataTypeDescription, repr(sData)));
 
-gdDefaultHeader_sValue_by_sName_by_sHTTPVersion = {
-  "HTTP/1.0": {
-    "connection": "close",
-  },
-  "HTTP/1.1": {
-    "connection": "keep-alive",
-  },
-};
-
 class iHTTPMessage(cWithDebugOutput):
   asSupportedCompressionTypes = ["br", "deflate", "gzip", "x-gzip", "zlib"];
+  ddDefaultHeader_sValue_by_sName_by_sHTTPVersion = {
+    "HTTP/1.0": {
+      "Connection": "Close",
+      "Cache-Control": "No-Cache, Must-Revalidate",
+      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
+      "Pragma": "No-Cache",
+    },
+    "HTTP/1.1": {
+      "Connection": "Keep-Alive",
+      "Cache-Control": "No-Cache, Must-Revalidate",
+      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
+      "Pragma": "No-Cache",
+    },
+  };
   
   class cInvalidHTTPMessageException(cException):
     pass;
@@ -42,7 +47,7 @@ class iHTTPMessage(cWithDebugOutput):
     assert sData is None or asBodyChunks is None, \
           "Cannot provide both sData and asBodyChunks!";
     oSelf.__sHTTPVersion = sHTTPVersion if sHTTPVersion else "HTTP/1.1";
-    dDefaultHeader_sValue_by_sName = gdDefaultHeader_sValue_by_sName_by_sHTTPVersion.get(oSelf.__sHTTPVersion);
+    dDefaultHeader_sValue_by_sName = oSelf.ddDefaultHeader_sValue_by_sName_by_sHTTPVersion.get(oSelf.__sHTTPVersion);
     assert dDefaultHeader_sValue_by_sName, \
         "Invalid HTTP version %s" % sHTTPVersion;
     oSelf.__dHeader_sValue_by_sName = {};
