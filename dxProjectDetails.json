@@ -1,0 +1,18 @@
+{
+  "asDependentOnProductNames": [
+    "mDebugOutput",
+    "mMultiThreading",
+  ], 
+  "oProductVersion": "2019-01-04 13:59", 
+  "oRepository": {
+    "sBranch": "master", 
+    "sRepositoryName": "mHTTP", 
+    "sType": "GitHub", 
+    "sUserName": "SkyLined"
+  }, 
+  "sLicenseServerURL": "https://license.skylined.nl/License_dxCheck.php", 
+  "sProductAuthor": "SkyLined", 
+  "sProductName": "mHTTP", 
+  "sProductURL": "https://github.com/SkyLined/mHTTP", 
+  "oTrialPeriodDuration": "1m"
+}
