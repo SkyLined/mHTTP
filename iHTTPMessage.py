@@ -135,7 +135,7 @@ class iHTTPMessage(cWithDebugOutput):
   @property
   def sData(oSelf):
     # Returns decoded and decompressed body based on the Content-Encoding header.
-    sData = oSelf.sBody;
+    sData = oSelf.__sBody if not oSelf.bChunked else "".join(oSelf.__asBodyChunks);
     if sData is None:
       return None;
     sContentEncoding = oSelf.fsGetHeaderValue("Content-Encoding");
