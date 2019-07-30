@@ -85,3 +85,5 @@ try:
     fTestProxyServer(oProxyServerURL, oCertificateStore, oExampleURL, oSecureExampleURL, oInterceptSSLConnectionsCertificateAuthority = oCertificateAuthority);
 except Exception as oException:
   fFatalExceptionOutput(oException);
+else:
+  fDebugOutput("+ Done.");
