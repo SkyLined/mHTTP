@@ -104,6 +104,14 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
       ("?%s" % sQuery) if sQuery else "",
       ("#%s" % sFragment) if sFragment else "",
     ]);
+  def foGetURL(oSelf, sPath = None, sQuery = None, sFragment = None):
+    return oSelf.__oURL.foClone(sPath = sPath, sQuery = sQuery, sFragment = sFragment);
+  
+  def fsGetRequestURL(oSelf, oRequest):
+    return oSelf.__oURL.sBase + oRequest.sURL;
+  
+  def foGetRequestURL(oSelf, oRequest):
+    return cURL.foFromString(oSelf.fsGetRequestURL(oRequest));
   
   def fStart(oSelf, foRequestHandler):
     oSelf.fEnterFunctionOutput(foRequestHandler = foRequestHandler);
