@@ -32,11 +32,11 @@ class cURL(cWithDebugOutput):
     (sProtocol, sHostName, sPort, sPath, sQuery, sFragment) = oURLMatch.groups();
     return cURL(sProtocol, sHostName, long(sPort) if sPort is not None else None, sPath, sQuery, sFragment);
   
-  def __init__(oSelf, sProtocol, sHostName, uPort = None, sPath = None, sQuery = None, sFragment = None):
+  def __init__(oSelf, sProtocol, sHostName, uPort = None, sPath = "/", sQuery = None, sFragment = None):
     oSelf.__sProtocol = sProtocol;
     oSelf.__sHostName = sHostName;
     oSelf.__uPort = uPort;
-    oSelf.__sPath = sPath;
+    oSelf.sPath = sPath; # Use setter so we can reuse code that guarantees this starts with "/"
     oSelf.__sQuery = sQuery;
     oSelf.__sFragment = sFragment;
   
@@ -81,14 +81,14 @@ class cURL(cWithDebugOutput):
     return oSelf.__sPath;
   @sPath.setter
   def sPath(oSelf, sPath):
-    oSelf.__sPath = sPath;
+    oSelf.__sPath = ("/" if (not sPath or sPath[0] != "/") else "") + (sPath or "");
   
   @property
   def asPath(oSelf):
-    return oSelf.__sPath.split("/") if oSelf.__sPath is not None else [];
+    return oSelf.__sPath[1:].split("/") if oSelf.__sPath != "/" else [];
   @asPath.setter
   def asPath(oSelf, asPath):
-    oSelf.__sPath = "/".join(asPath);
+    oSelf.__sPath = "/" + "/".join(asPath);
   
   ### Query ####################################################################
   @property
@@ -141,7 +141,7 @@ class cURL(cWithDebugOutput):
   @property
   def sRelative(oSelf):
     return "/%s%s%s" % (
-      oSelf.__sPath or "",
+      oSelf.__sPath,
       ("?%s" % oSelf.__sQuery) if oSelf.__sQuery is not None else "",
       ("#%s" % oSelf.__sFragment) if oSelf.__sFragment is not None else "",
     );
