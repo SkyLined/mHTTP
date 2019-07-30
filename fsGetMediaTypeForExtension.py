@@ -1,6 +1,6 @@
 from .dasMediaTypes_by_sExtension import dasMediaTypes_by_sExtension;
 
-def fsGetMediaTypeForExtension(oSelf, sExtension):
+def fsGetMediaTypeForExtension(sExtension):
   # You can also specify a path and a file name; the code will extract the extension from this:
   uLastDotIndex = sExtension.rfind(".");
   if uLastDotIndex > -1:
