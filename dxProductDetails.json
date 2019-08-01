@@ -1,7 +1,7 @@
 {
   "asDependentOnProductNames": [
     "mDebugOutput",
-    "mMultiThreading",
+    "mMultiThreading"
   ], 
   "oProductVersion": "2019-01-04 13:59", 
   "oRepository": {
@@ -10,9 +10,9 @@
     "sType": "GitHub", 
     "sUserName": "SkyLined"
   }, 
-  "sLicenseServerURL": None, 
+  "sLicenseServerURL": null, 
   "sProductAuthor": "SkyLined", 
   "sProductName": "mHTTP", 
   "sProductURL": "https://github.com/SkyLined/mHTTP", 
-  "oTrialPeriodDuration": None
+  "oTrialPeriodDuration": null
 }
