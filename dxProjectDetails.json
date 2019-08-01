@@ -10,9 +10,9 @@
     "sType": "GitHub", 
     "sUserName": "SkyLined"
   }, 
-  "sLicenseServerURL": "https://license.skylined.nl/License_dxCheck.php", 
+  "sLicenseServerURL": None, 
   "sProductAuthor": "SkyLined", 
   "sProductName": "mHTTP", 
   "sProductURL": "https://github.com/SkyLined/mHTTP", 
-  "oTrialPeriodDuration": "1m"
+  "oTrialPeriodDuration": None
 }
