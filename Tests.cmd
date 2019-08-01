@@ -1,2 +1,12 @@
-@PYTHON "%~dp0Tests\Tests.py" %*
+@ECHO OFF
+WHERE PYTHON 2>&1 >nul
+IF ERRORLEVEL 1 (
+  ECHO - PYTHON was not found!
+  EXIT /B 1
+)
+
+CALL PYTHON "%~dp\%~n0\%~n0.py" %*
+IF ERRORLEVEL 1 (
+  ECHO - Error %ERRORLEVEL%!
+)
 EXIT /B %ERRORLEVEL%
