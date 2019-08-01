@@ -25,7 +25,11 @@ class cSSLContext(cWithDebugOutput):
   def foForServerWithHostNameAndKeyAndCertificateFilePath(cClass, sHostName, sKeyFilePath, sCertificateFilePath):
     # Server side with certificate and private key in separate files
     oPythonSSLContext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH);
-    oPythonSSLContext.load_cert_chain(keyfile = sKeyFilePath, certfile = sCertificateFilePath);
+    try:
+      oPythonSSLContext.load_cert_chain(keyfile = sKeyFilePath, certfile = sCertificateFilePath);
+    except ssl.SSLError, oError:
+      oError.message = "Cannot load certificate chain (keyfile = %s, certfile = %s): %s" % (sKeyFilePath, sCertificateFilePath, oError.message);
+      raise;
     return cClass(sHostName, oPythonSSLContext, bServerSide = True);
   
   @classmethod
