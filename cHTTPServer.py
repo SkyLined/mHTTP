@@ -78,7 +78,14 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
         if bLockMain: oSelf.__oMainLock.fRelease();
       if bTerminated:
         oSelf.__oTerminatedLock.fRelease();
-        oSelf.fFireCallbacks("terminated");
+        # We cannot hold the main lock while firing events. So, if the calling
+        # function tells us it is locked, unlock it while we do so, then lock
+        # it again.
+        if not bLockMain: oSelf.__oMainLock.fAcquire();
+        try:
+          oSelf.fFireCallbacks("terminated");
+        finally:
+          if not bLockMain: oSelf.__oMainLock.fRelease();
         return oSelf.fExitFunctionOutput("Terminated");
       else:
         assert not bMusteBeTerminated, \
