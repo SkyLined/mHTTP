@@ -5,4 +5,4 @@ def fsGetMediaTypeForExtension(sExtension):
   uLastDotIndex = sExtension.rfind(".");
   if uLastDotIndex > -1:
     sExtension = sExtension[uLastDotIndex + 1:];
-  return dasMediaTypes_by_sExtension.get(sExtension, [None])[0];
+  return dasMediaTypes_by_sExtension.get(sExtension.lower(), [None])[0];
