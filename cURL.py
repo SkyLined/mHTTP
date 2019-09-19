@@ -1,4 +1,4 @@
-import re;
+import re, urllib;
 from mDebugOutput import cWithDebugOutput;
 from .cException import cException;
 from .fdsURLDecodedNameValuePairsFromString import fdsURLDecodedNameValuePairsFromString;
@@ -76,6 +76,10 @@ class cURL(cWithDebugOutput):
     oself.__uPort = uPort;
   
   ### Path #####################################################################
+  @property
+  def sURLDecodedPath(oSelf):
+    return urllib.unquote(oSelf.__sPath);
+  
   @property
   def sPath(oSelf):
     return oSelf.__sPath;
