@@ -59,7 +59,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
         oConnection.fTerminate();
       raise AssertionError("cHTTPServer instance deleted without being terminated");
   
-  def __fCheckForTermination(oSelf, bLockMain = True, bMusteBeTerminated = False):
+  def __fCheckForTermination(oSelf, bLockMain = True, bMustBeTerminated = False):
     oSelf.fEnterFunctionOutput();
     try:
       if bLockMain: oSelf.__oMainLock.fAcquire();
@@ -67,7 +67,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
         if oSelf.__bTerminated:
           return oSelf.fExitFunctionOutput("Already terminated");
         if not oSelf.__bStopping:
-          assert not bMusteBeTerminated, \
+          assert not bMustBeTerminated, \
               "The server is expected to have terminated at this point, but is not even stopping";
           return oSelf.fExitFunctionOutput("Not stopping");
         uOpenConnections = len(oSelf.__aoOpenConnections);
@@ -88,7 +88,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
           if not bLockMain: oSelf.__oMainLock.fAcquire();
         return oSelf.fExitFunctionOutput("Terminated");
       else:
-        assert not bMusteBeTerminated, \
+        assert not bMustBeTerminated, \
             "The server is expected to have terminated at this point, but there are %d open connections and %d running threads remaining" \
             % (uOpenConnections, uRunningThreads);
       return oSelf.fExitFunctionOutput("Not terminated; %d connections, %d threads." % (uOpenConnections, uRunningThreads));
@@ -161,7 +161,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
           return oSelf.fExitFunctionOutput("Already stopping");
         oSelf.__bStopping = True;
         if not oSelf.__bStarted:
-          oSelf.__fCheckForTermination(bLockMain = False, bMusteBeTerminated = True); # This should fire terminated event
+          oSelf.__fCheckForTermination(bLockMain = False, bMustBeTerminated = True); # This should fire terminated event
           return oSelf.fExitFunctionOutput("Never started");
         if not oSelf.__bServerSocketClosed:
           oSelf.fStatusOutput("Closing server socket...");
@@ -208,7 +208,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
           pass;
         oSelf.__bServerSocketClosed = True;
         if not oSelf.__bStarted:
-          oSelf.__fCheckForTermination(bLockMain = False, bMusteBeTerminated = True);
+          oSelf.__fCheckForTermination(bLockMain = False, bMustBeTerminated = True);
           return oSelf.fExitFunctionOutput("Never started");
         aoOpenConnections = oSelf.__aoOpenConnections[:];
       finally:
@@ -221,7 +221,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
             "No connections should remain open at this point!?";
       assert len(oSelf.__aoRunningThreads) == 0, \
           "No threads should remain running at this point!?";
-      oSelf.__fCheckForTermination(bMusteBeTerminated = True); # This will fire termination events
+      oSelf.__fCheckForTermination(bMustBeTerminated = True); # This will fire termination events
       return oSelf.fExitFunctionOutput("Terminated");
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
