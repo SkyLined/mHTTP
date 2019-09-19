@@ -27,6 +27,7 @@ dasMediaTypes_by_sExtension = {
   "m2v":      ["video/mpeg"],
   "m4a":      ["audio/mp4a-latm"],
   "m4v":      ["video/x-m4v"],
+  "md":       ["text/markdown"],
   "mid":      ["audio/mid"],
   "mk3d":     ["video/x-matroska"],
   "mka":      ["audio/x-matroska"],

@@ -80,6 +80,7 @@ dasExtensions_by_sMediaType = {
   "text/jscript":                       ["js"],
   "text/x-javascript":                  ["js"],
   "application/json":                   ["json"],
+  "text/markdown":                      ["md"],
   "text/plain":                         ["txt"],
   "text/rtf":                           ["rtf"],
   "text/vbs":                           ["vbs"],
