@@ -9,10 +9,10 @@ from mMultiThreading import cLock, cThread, cWithCallbacks;
 
 class cHTTPServer(cWithCallbacks, cWithDebugOutput):
   nDefaultWaitForRequestTimeoutInSeconds = 20;
-  def __init__(oSelf, sHostName = None, uPort = None, oSSLContext = None, nWaitForRequestTimeoutInSeconds = None):
+  def __init__(oSelf, sHostName = None, uPort = None, oSSLContext = None, nWaitForRequestTimeoutInSeconds = None, bLocal = True):
     oSelf.__bBound = False;
     if sHostName is None:
-      sHostName = socket.gethostbyname(socket.gethostname());
+      sHostName = "127.0.0.1" if bLocal else socket.gethostbyname(socket.gethostname());
     if uPort is None:
       uPort = oSSLContext and 443 or 80;
     oSelf.__oURL = cURL(sProtocol = "https" if oSSLContext else "http", sHostName = sHostName, uPort = uPort);

@@ -12,7 +12,7 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
   nDefaultSecureConnectionTimeoutInSeconds = None;
   nDefaultSecureConnectionIdleTimeoutInSeconds = 20;
   
-  def __init__(oSelf, sHostName = None, uPort = None, oServerSSLContext = None, oCertificateStore = None, oChainedProxyURL = None, oInterceptSSLConnectionsCertificateAuthority = None, nTransactionTimeoutInSeconds = None, bCheckHostName = None, nSecureConnectionTimeoutInSeconds = None, nSecureConnectionIdleTimeoutInSeconds = None, uMaxConnectionsToServer = None):
+  def __init__(oSelf, sHostName = None, uPort = None, oServerSSLContext = None, oCertificateStore = None, oChainedProxyURL = None, oInterceptSSLConnectionsCertificateAuthority = None, nTransactionTimeoutInSeconds = None, bCheckHostName = None, nSecureConnectionTimeoutInSeconds = None, nSecureConnectionIdleTimeoutInSeconds = None, uMaxConnectionsToServer = None, bLocal = True):
     oSelf.__oCertificateStore = oCertificateStore;
     oSelf.__oInterceptSSLConnectionsCertificateAuthority = oInterceptSSLConnectionsCertificateAuthority;
     oSelf.__nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds;
@@ -40,7 +40,7 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
       "terminated"
     );
     
-    oSelf.oHTTPServer = cHTTPServer(sHostName, uPort, oServerSSLContext);
+    oSelf.oHTTPServer = cHTTPServer(sHostName, uPort, oServerSSLContext, bLocal = bLocal);
     oSelf.oHTTPServer.fAddCallback("started",
         lambda oHTTPServer: oSelf.fFireCallbacks("started"));
     oSelf.oHTTPServer.fAddCallback("new connection",
