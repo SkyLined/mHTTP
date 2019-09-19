@@ -55,9 +55,10 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
         oSelf.__oServerSocket.close();
       except Exception:
         pass;
-      for oConnection in oSelf.__aoOpenConnections:
-        oConnection.fTerminate();
-      raise AssertionError("cHTTPServer instance deleted without being terminated");
+      if oSelf.__bStarted:
+        for oConnection in oSelf.__aoOpenConnections:
+          oConnection.fTerminate();
+        raise AssertionError("cHTTPServer instance deleted without being terminated");
   
   def __fCheckForTermination(oSelf, bLockMain = True, bMustBeTerminated = False):
     oSelf.fEnterFunctionOutput();
