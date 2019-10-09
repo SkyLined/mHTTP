@@ -139,7 +139,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
         oSelf.fStatusOutput("Starting server socket listening on %s..." % oSelf.sAddress);
         oSelf.__oServerSocket.listen(1);
         oSelf.__oMainThread = cThread(oSelf.__fMain);
-        oSelf.__oMainThread.fStart();
+        oSelf.__oMainThread.fStart(bVital = False);
       finally:
         oSelf.__oMainLock.fRelease();
       oSelf.fExitFunctionOutput();

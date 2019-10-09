@@ -510,7 +510,7 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
             oSelf.__aoSecureConnectionThreads.append(oThread);
           finally:
             oSelf.__oSecureConnectionsLock.fRelease();
-          oThread.fStart();
+          oThread.fStart(bVital = False);
         oConnectionFromClient.fAddCallback("response sent", fStartConnectionHandlerThread);
         # Send a reponse to the client.
         oResponse = cHTTPResponse(
