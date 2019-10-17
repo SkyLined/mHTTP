@@ -20,12 +20,15 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
     oSelf.__bStopping = False;
     oSelf.__bTerminated = False;
     oSelf.__oTerminatedLock = cLock("%s.__oTerminatedLock" % oSelf.__class__.__name__, bLocked = True);
-
+    
     oSelf.fAddEvents("new connection", "request sent", "response received", "request sent and response received", "connection terminated", "terminated");
-
+  
   @property
   def bTerminated(oSelf):
     return oSelf.__bTerminated;
+  
+  def foGetProxyServerURL(oSelf):
+    return None;
   
   def __fCheckForTermination(oSelf):
     oSelf.fEnterFunctionOutput();

@@ -28,10 +28,13 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
     oSelf.__oTerminatedLock = cLock("%s.__oTerminatedLock" % oSelf.__class__.__name__, bLocked = True);
     
     oSelf.fAddEvents("new connection", "request sent", "response received", "request sent and response received", "secure connection established", "connection terminated", "terminated");
-
+  
   @property
   def bTerminated(oSelf):
     return oSelf.__bTerminated;
+  
+  def foGetProxyServerURL(oSelf):
+    return oSelf.__oProxyServerURL.foClone();
   
   def __faoGetAllConnections(oSelf):
     return oSelf.__aoNonSecureConnections + oSelf.__doSecureConnectionToServer_by_sProtocolHostPort.values();
