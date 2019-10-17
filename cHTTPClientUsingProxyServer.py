@@ -3,6 +3,7 @@ from .cCertificateStore import cCertificateStore;
 from .cHTTPClient import cHTTPClient;
 from .cHTTPConnection import cHTTPConnection;
 from .cHTTPRequest import cHTTPRequest;
+from .iHTTPMessage import iHTTPMessage;
 from mDebugOutput import cWithDebugOutput;
 from mMultiThreading import cLock, cWithCallbacks;
 
@@ -210,38 +211,37 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
     oSelf.fEnterFunctionOutput(nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds);
     try:
       nMaxEndConnectTime = time.clock() + nConnectTimeoutInSeconds;
-      # Try to find the connection that is available, or create a new connection if possible.
-      oSelf.__oConnectionsLock.fbAcquire();
-      try:
-        for oConnection in oSelf.__aoNonSecureConnections:
-          if oConnection.fbStartTransaction(nTransactionTimeoutInSeconds):
-            # This connection can be reused.
-            return oSelf.fxExitFunctionOutput(oConnection, "Reuse");
-        # No existing conenction is available, see if we can create a new one:
-        if len(oSelf.__faoGetAllConnections()) < oSelf.__uMaxConnectionsToServer:
-          nRemainingConnectTimeoutInSeconds = nMaxEndConnectTime - time.clock();
-          oConnection = oSelf.__foCreateNewConnectionToProxyAndStartTransaction(nRemainingConnectTimeoutInSeconds, nTransactionTimeoutInSeconds);
-          if not oConnection:
-            return oSelf.fxExitFunctionOutput(None, "None (timeout creating a new connection).");
-          return oSelf.fxExitFunctionOutput(oConnection, "New");
-        # We cannot use an existing non-secure connection or create more connections, but we should be able to
-        # terminate a secure connection that is not currently in use:
-        for oSecureConnection in oSelf.__doSecureConnectionToServer_by_sProtocolHostPort.values():
-          if oSecureConnection.fbStartTransaction(nTransactionTimeoutInSeconds):
-            oSecureConnection.fClose();
-            break;
-        else:
-          raise AssertionError("There should be connections available, but none are.");
-        # ...
-      finally:
-        oSelf.__oConnectionsLock.fRelease();
-      # We reach this code after closing an unused secure connection. We'll wait for it to terminate before creating a
-      # new non-secure connection to the proxy.
-      oSecureConnection.fWait();
-      nRemainingConnectTimeoutInSeconds = nMaxEndConnectTime - time.clock();
-      oConnection = oSelf.__foCreateNewConnectionToProxyAndStartTransaction(nRemainingConnectTimeoutInSeconds, nRemainingTransactionTimeoutInSeconds);
-      return oSelf.fxExitFunctionOutput(oConnection, "New" if oConnection else "Transaction timeout while creating connection");
-      oSelf.__oConnectionAvailableLock.fRelease();
+      while time.clock() < nMaxEndConnectTime:
+        # Try to find the connection that is available, or create a new connection if possible.
+        oSelf.__oConnectionsLock.fbAcquire();
+        try:
+          for oConnection in oSelf.__aoNonSecureConnections:
+            if oConnection.fbStartTransaction(nTransactionTimeoutInSeconds):
+              # This connection can be reused.
+              return oSelf.fxExitFunctionOutput(oConnection, "Reuse");
+          # No existing connection is available, see if we can create a new one:
+          if len(oSelf.__faoGetAllConnections()) < oSelf.__uMaxConnectionsToServer:
+            nRemainingConnectTimeoutInSeconds = nMaxEndConnectTime - time.clock();
+            oConnection = oSelf.__foCreateNewConnectionToProxyAndStartTransaction(nRemainingConnectTimeoutInSeconds, nTransactionTimeoutInSeconds);
+            if not oConnection:
+              return oSelf.fxExitFunctionOutput(None, "None (timeout creating a new connection).");
+            return oSelf.fxExitFunctionOutput(oConnection, "New");
+          # We cannot use an existing non-secure connection or create more connections, but we should be able to
+          # terminate a secure connection that is not currently in use:
+          for oSecureConnection in oSelf.__doSecureConnectionToServer_by_sProtocolHostPort.values():
+            if oSecureConnection.fbStartTransaction(nTransactionTimeoutInSeconds):
+              break;
+          else:
+            return oSelf.fxExitFunctionOutput(None, "None (all connections are in use).");
+        finally:
+          oSelf.__oConnectionsLock.fRelease();
+        # We reach this code after finding an unused secure connection and starting a transaction on it.
+        # We'll close it and wait for it to terminate before trying again.
+        oSecureConnection.fClose();
+        oSecureConnection.fWait();
+      # We've had to close connections in order to make a new one but other threads apparently created new connections
+      # before we did and we were not able to create a new connection before the timeout passed.
+      return oSelf.fxExitFunctionOutput(None, "None (timeout trying to create a new connection).");
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
