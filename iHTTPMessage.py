@@ -119,13 +119,14 @@ class iHTTPMessage(cWithDebugOutput):
   def sCharset(oSelf):
     sContextTypeHeaderValue = oSelf.fsGetHeaderValue("Content-Type");
     sCharSet = None;
-    for sNameValuePair in sContextTypeHeaderValue.split(";")[1:]:
-      tsNameValuePair = sNameValuePair.split("=", 1);
-      if len(tsNameValuePair) == 2:
-        sName, sValue = tsNameValuePair;
-        if sName.strip().lower() == "charset":
-          sCharSet = sValue;
-          # don't break: when multiple values are provided the last one counts.
+    if sContextTypeHeaderValue:
+      for sNameValuePair in sContextTypeHeaderValue.split(";")[1:]:
+        tsNameValuePair = sNameValuePair.split("=", 1);
+        if len(tsNameValuePair) == 2:
+          sName, sValue = tsNameValuePair;
+          if sName.strip().lower() == "charset":
+            sCharSet = sValue;
+            # don't break: when multiple values are provided the last one counts.
     return sCharSet;
   
   @property
