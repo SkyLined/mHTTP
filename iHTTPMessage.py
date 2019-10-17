@@ -107,10 +107,26 @@ class iHTTPMessage(cWithDebugOutput):
   @property
   def sMediaType(oSelf):
     sContextTypeHeaderValue = oSelf.fsGetHeaderValue("Content-Type");
-    return sContextTypeHeaderValue and sContextTypeHeaderValue.strip();
+    return sContextTypeHeaderValue and sContextTypeHeaderValue.split(";")[0].strip();
   @sMediaType.setter
   def sMediaType(oSelf, sValue):
-    oSelf.fSetHeaderValue("Content-Type", sValue);
+    sContextTypeHeaderValue = oSelf.fsGetHeaderValue("Content-Type");
+    sAdditionalContentTypeValues = sContextTypeHeaderValue.split(";")[1:].join(";") if sContextTypeHeaderValue else "";
+    sContentType = sValue + ("; %s" % sAdditionalContentTypeValues if sAdditionalContentTypeValues else "");
+    oSelf.fSetHeaderValue("Content-Type", sContentType);
+  
+  @property
+  def sCharset(oSelf):
+    sContextTypeHeaderValue = oSelf.fsGetHeaderValue("Content-Type");
+    sCharSet = None;
+    for sNameValuePair in sContextTypeHeaderValue.split(";")[1:]:
+      tsNameValuePair = sNameValuePair.split("=", 1);
+      if len(tsNameValuePair) == 2:
+        sName, sValue = tsNameValuePair;
+        if sName.strip().lower() == "charset":
+          sCharSet = sValue;
+          # don't break: when multiple values are provided the last one counts.
+    return sCharSet;
   
   @property
   def bChunked(oSelf):
@@ -154,9 +170,17 @@ class iHTTPMessage(cWithDebugOutput):
           sData = zlib.decompress(sData, zlib.MAX_WBITS);
         else:
           raise NotImplementedError("Content encoding %s is not supported" % sEncodingType);
+    sCharset = oSelf.sCharset;
+    if sCharset:
+      # Convert bytes to unicode using charset defined in Content-Type header.
+      sData = unicode(sData, sCharset, "replace");
     return sData;
 
   def fSetData(oSelf, sData, bCloseConnectionInsteadOfUsingContentLength = False):
+    sCharset = oSelf.sCharset;
+    if sCharset:
+      # Convert unicode to bytes using charset defined in Content-Type header.
+      sData = str(sData, sCharset);
     # Sets the (optionally) compressed body of the message.
     sContentEncoding = oSelf.fsGetHeaderValue("Content-Encoding");
     if sContentEncoding:
