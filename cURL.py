@@ -15,6 +15,8 @@ class cURL(cWithDebugOutput):
   
   @staticmethod
   def foFromString(sURL):
+    if not isinstance(sURL, (str, unicode)):
+      raise cURL.cInvalidURLException("Invalid URL", repr(sURL));
     oURLMatch = re.match("^(?:%s)$" % "".join([
       r"(%s)://" % "|".join([re.escape(sProtocol) for sProtocol in gdtxDefaultPortAndSecure_by_sProtocol.keys()]),
       r"(%s)" % "|".join([
