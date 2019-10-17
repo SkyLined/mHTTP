@@ -1,4 +1,5 @@
 import time;
+from .cCertificateStore import cCertificateStore;
 from .cHTTPClient import cHTTPClient;
 from .cHTTPConnection import cHTTPConnection;
 from .cHTTPRequest import cHTTPRequest;
@@ -12,7 +13,7 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
   
   def __init__(oSelf, oProxyServerURL, oCertificateStore = None, uMaxConnectionsToServer = None):
     oSelf.__oProxyServerURL = oProxyServerURL;
-    oSelf.__oCertificateStore = oCertificateStore;
+    oSelf.__oCertificateStore = oCertificateStore or cCertificateStore();
     oSelf.__uMaxConnectionsToServer = uMaxConnectionsToServer or oSelf.uDefaultMaxConnectionsToServer;
 
     oSelf.__oProxyServerSSLContext = oCertificateStore.foGetSSLContextForClientWithHostName(oProxyServerURL.sHostName) if oProxyServerURL.bSecure else None;

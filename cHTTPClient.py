@@ -1,3 +1,4 @@
+from .cCertificateStore import cCertificateStore;
 from .cHTTPConnectionsToServerPool import cHTTPConnectionsToServerPool;
 from .cHTTPRequest import cHTTPRequest;
 from .cHTTPConnection import cHTTPConnection;
@@ -10,7 +11,7 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   nDefaultTransactionTimeoutInSeconds = 10;
   
   def __init__(oSelf, oCertificateStore = None, uMaxConnectionsToServer = None):
-    oSelf.__oCertificateStore = oCertificateStore;
+    oSelf.__oCertificateStore = oCertificateStore or cCertificateStore();
     oSelf.__uMaxConnectionsToServer = uMaxConnectionsToServer or oSelf.uDefaultMaxConnectionsToServer;
     
     oSelf.__oConnectionsLock = cLock("%s.__oConnectionsLock" % oSelf.__class__.__name__);
