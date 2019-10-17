@@ -317,10 +317,10 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
       except iHTTPMessage.cInvalidHTTPMessageException:
         return oSelf.fxExitFunctionOutput(None, "The proxy sent an invalid response to a CONNECT request.");
       if oConnectResponse is None:
-        return fxExitFunctionOutput(None, "The connection to the proxy was closed before a CONNECT request could be sent.");
+        return oSelf.fxExitFunctionOutput(None, "The connection to the proxy was closed before a CONNECT request could be sent.");
       if oConnectResponse.uStatusCode != 200:
         oConnectionToProxy.fClose();
-        return fxExitFunctionOutput(None, "The proxy did not accept our CONNECT request.");
+        return oSelf.fxExitFunctionOutput(None, "The proxy did not accept our CONNECT request.");
       if not bNoSSLNegotiation:
         # Wrap the connection in SSL.
         oSSLContext = oSelf.__oCertificateStore.foGetSSLContextForClientWithHostName(oServerBaseURL.sHostName);
