@@ -1,11 +1,11 @@
 import socket, time;
 from mDebugOutput import fDebugOutput;
-from mHTTP import cHTTPClient, cHTTPResponse;
+import mHTTP;
 from mMultiThreading import cThread;
 
 def fTestClient(oCertificateStore, oTestURL, oSecureTestURL, oUnknownAddressURL, oInvalidAddressURL, oConnectionRefusedURL, oConnectionTimeoutURL, oConnectionClosedURL, oOutOfBandDataURL, oInvalidHTTPMessageURL):
-  fDebugOutput("**** Creating a cHTTPClient instance ".ljust(160, "*"));
-  oHTTPClient = cHTTPClient(oCertificateStore);
+  fDebugOutput("**** Creating a mHTTP.cHTTPClient instance ".ljust(160, "*"));
+  oHTTPClient = mHTTP.cHTTPClient(oCertificateStore);
   fDebugOutput(("**** Making a first test request to %s " % oTestURL).ljust(160, "*"));
   fDebugOutput(repr(oHTTPClient.foGetResponseForURL(oTestURL).sData));
   fDebugOutput(("**** Making a second test request to %s " % oTestURL).ljust(160, "*"));
@@ -47,7 +47,7 @@ def fTestClient(oCertificateStore, oTestURL, oSecureTestURL, oUnknownAddressURL,
   oOutOfBandDataServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
   oOutOfBandDataServerSocket.bind((oOutOfBandDataURL.sHostName, oOutOfBandDataURL.uPort));
   oOutOfBandDataServerSocket.listen(1);
-  oResponse = cHTTPResponse(sData = "Hello, world!");
+  oResponse = mHTTP.cHTTPResponse(sData = "Hello, world!");
   sResponseWithOutOfBandData = oResponse.fsSerialize() + oResponse.fsSerialize();
   def fOutOfBandDataServerThread():
     (oClientSocket, (sClientIP, uClientPort)) = oOutOfBandDataServerSocket.accept();
@@ -86,13 +86,13 @@ def fTestClient(oCertificateStore, oTestURL, oSecureTestURL, oUnknownAddressURL,
   oInvalidHTTPMessageServerThread.fStart(bVital = False);
   
   for (oURL, cException) in (
-    (oUnknownAddressURL, cHTTPClient.cConnectToUnknownAddressException),
-    (oInvalidAddressURL, cHTTPClient.cConnectToInvalidAddressException),
-    (oConnectionRefusedURL, cHTTPClient.cConnectionRefusedException),
-    (oConnectionTimeoutURL, cHTTPClient.cConnectTimeoutException),
-    (oConnectionClosedURL, cHTTPClient.cConnectionClosedException),
-    (oOutOfBandDataURL, cHTTPClient.cOutOfBandDataException),
-    (oInvalidHTTPMessageURL, cHTTPClient.cInvalidHTTPMessageException),
+    (oUnknownAddressURL, mHTTP.cConnectToUnknownAddressException),
+    (oInvalidAddressURL, mHTTP.cConnectToInvalidAddressException),
+    (oConnectionRefusedURL, mHTTP.cConnectionRefusedException),
+    (oConnectionTimeoutURL, mHTTP.cConnectTimeoutException),
+    (oConnectionClosedURL, mHTTP.cConnectionClosedException),
+    (oOutOfBandDataURL, mHTTP.cOutOfBandDataException),
+    (oInvalidHTTPMessageURL, mHTTP.cInvalidHTTPMessageException),
   ):
     fDebugOutput(("**** Making a test request to %s " % oURL).ljust(160, "*"));
     fDebugOutput("  * Expecting %s exception." % cException.__name__);
@@ -105,7 +105,7 @@ def fTestClient(oCertificateStore, oTestURL, oSecureTestURL, oUnknownAddressURL,
     else:
       raise AssertionError("No exception");
   
-  fDebugOutput("**** Stopping cHTTPClient instance ".ljust(160, "*"));
+  fDebugOutput("**** Stopping mHTTP.cHTTPClient instance ".ljust(160, "*"));
   oHTTPClient.fStop();
   oHTTPClient.fWait();
   
