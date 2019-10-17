@@ -14,6 +14,11 @@ guDefaultMaxNumberOfHeaders = 256;
 guDefaultMaxBodySize = 10*1000*1000;
 guDefaultMaxChunkSize = 10*1000*1000;
 guDefaultMaxNumberOfChunks = 1000;
+# The HTTP RFC does not provide an upper limit to the maximum number of characters a chunk size can contain.
+# So, by padding a valid chunk size on the left with "0", one could theoretically create a valid chunk header that has
+# an infinite size. To prevent us accepting such an obviously invalid value, we will accept no chunk size containing
+# more than 8 chars (i.e. 32-bit numbers).
+guMaxChunkSizeCharacters = 8;
 
 gbDebugOutputFullHTTPMessages = True;
 
@@ -396,17 +401,17 @@ class cHTTPConnection(cBufferedSocket):
     oSelf.fEnterFunctionOutput(uMaxBodySize = uMaxBodySize, uMaxChunkSize = uMaxChunkSize, uMaxNumberOfChunks = uMaxNumberOfChunks);
     try:
       asBodyChunks = [];
-      uMaxChunkSizeChars = len("%X" % uMaxChunkSize); # More than this many chars in the 
+      # The chunk size can be zero padded More than this many chars in the 
       uTotalChunksSize = 0;
       while 1:
         oSelf.fStatusOutput("Reading response body chunk header line...");
         # Read size in the chunk header
         try:
-          sChunkHeader = oSelf.fsReadUntil("\r\n", uMaxChunkSizeChars + 2);
+          sChunkHeader = oSelf.fsReadUntil("\r\n", guMaxChunkSizeCharacters + 2);
         except cBufferedSocket.cTooMuchDataException as oException:
           raise iHTTPMessage.cInvalidHTTPMessageException(
-            "A body chunk header line was too large (>%d bytes)." % len(uMaxChunkSizeChars),
-            None,
+            "A body chunk header line was too large (>%d bytes)." % guMaxChunkSizeCharacters,
+            str(oException),
           );
         except cBufferedSocket.cTransactionTimeoutException as oException:
           oException.sMessage += " (attempt to read body chunk header line)";
@@ -420,10 +425,10 @@ class cHTTPConnection(cBufferedSocket):
           
         if sChunkHeader is None:
           sData = oSelf.fsReadBufferedData();
-          if len(sData) >= uMaxChunkSizeChars:
+          if len(sData) >= guMaxChunkSizeCharacters:
             oSelf.fClose();
             raise iHTTPMessage.cInvalidHTTPMessageException(
-              "A body chunk header line was too large (>%d bytes)." % uMaxChunkSizeChars,
+              "A body chunk header line was too large (>%d bytes)." % guMaxChunkSizeCharacters,
               sData,
             );
           elif not oSelf.bOpenForReading:
