@@ -60,12 +60,19 @@ class cURL(cWithDebugOutput):
       sFragment = sFragment if sPath or sQuery or sFragment is not None else UNSPECIFIED,
     );
   
-  def __init__(oSelf, sProtocol, sHostName, uPort = None, sPath = "/", sQuery = None, sFragment = None):
-    assert isinstance(sProtocol, str), "sProtocol must be a string, not %s" % repr(sProtocol);
-    assert isinstance(sHostName, str), "sHostName must be a string, not %s" % repr(sHostName);
-    assert uPort is None or isinstance(uPort, (int, long)), "uPort must be None, an int or a long, not %s" % repr(uPort);
-    assert sQuery is None or isinstance(sQuery, str), "sQuery must be None or a string, not %s" % repr(sQuery);
-    assert sFragment is None or isinstance(sFragment, str), "sFragment must be None or a string, not %s" % repr(sFragment);
+  def __init__(oSelf, sProtocol, sHostName, uPort = None, sPath = None, sQuery = None, sFragment = None):
+    assert isinstance(sProtocol, str), \
+        "sProtocol must be an sASCII string, not %s" % repr(sProtocol);
+    assert isinstance(sHostName, str), \
+        "sHostName must be an sASCII string, not %s" % repr(sHostName);
+    assert uPort is None or isinstance(uPort, (int, long)), \
+        "uPort must be None, an int or a long, not %s" % repr(uPort);
+    assert sPath is None or isinstance(sPath, str), \
+        "sPath must be None or an ASCII string, not %s" % repr(uPort);
+    assert sQuery is None or isinstance(sQuery, str), \
+        "sQuery must be None or an ASCII string, not %s" % repr(sQuery);
+    assert sFragment is None or isinstance(sFragment, str), \
+        "sFragment must be None or an ASCII string, not %s" % repr(sFragment);
     oSelf.__sProtocol = sProtocol;
     oSelf.__sHostName = sHostName;
     oSelf.__uPort = uPort;
@@ -98,7 +105,8 @@ class cURL(cWithDebugOutput):
     return oSelf.__sHostName;
   @sHostName.setter
   def sHostName(oSelf, sHostName):
-    assert isinstance(sHostName, str), "sHostName must be a string, not %s" % repr(sHostName);
+    assert isinstance(sHostName, str), \
+        "sHostName must be an sASCII string, not %s" % repr(sHostName);
     oSelf.__sHostName = sHostName;
   
   ### Port #####################################################################
@@ -107,7 +115,8 @@ class cURL(cWithDebugOutput):
     return oSelf.__uPort if oSelf.__uPort is not None else gdtxDefaultPortAndSecure_by_sProtocol[oSelf.__sProtocol][0];
   @uPort.setter
   def uPort(oSelf, uPort):
-    assert uPort is None or isinstance(uPort, (int, long)), "uPort must be None, an int or a long, not %s" % repr(uPort);
+    assert uPort is None or isinstance(uPort, (int, long)), \
+        "uPort must be None, an int or a long, not %s" % repr(uPort);
     oself.__uPort = uPort;
   
   ### Path #####################################################################
@@ -120,7 +129,8 @@ class cURL(cWithDebugOutput):
     return oSelf.__sPath;
   @sPath.setter
   def sPath(oSelf, sPath):
-    assert isinstance(sPath, str), "sPath must be a string, not %s" % repr(sPath);
+    assert sPath is None or isinstance(sPath, str), \
+        "sPath must be None an sASCII string, not %s" % repr(sPath);
     oSelf.__sPath = ("/" if (not sPath or sPath[0] != "/") else "") + (sPath or "");
   
   @property
@@ -128,9 +138,11 @@ class cURL(cWithDebugOutput):
     return oSelf.__sPath[1:].split("/") if oSelf.__sPath != "/" else [];
   @asPath.setter
   def asPath(oSelf, asPath):
-    assert isinstance(asPath, list), "asPath must be a list of strings, not %s" % repr(asPath);
+    assert isinstance(asPath, list), \
+        "asPath must be a list of strings, not %s" % repr(asPath);
     for sComponent in asPath:
-      assert isinstance(sComponent, str), "asPath must be a list of strings, not %s" % repr(asPath);
+      assert isinstance(sComponent, str), \
+          "asPath must be a list of strings, not %s" % repr(asPath);
     oSelf.__sPath = "/" + "/".join(asPath);
   
   ### Query ####################################################################
@@ -139,7 +151,8 @@ class cURL(cWithDebugOutput):
     return oSelf.__sQuery;
   @sQuery.setter
   def sQuery(oSelf, sQuery):
-    assert sQuery is None or isinstance(sQuery, str), "sQuery must be None or a string, not %s" % repr(sQuery);
+    assert sQuery is None or isinstance(sQuery, str), \
+        "sQuery must be None or an sASCII string, not %s" % repr(sQuery);
     oSelf.__sQuery = sQuery;
   @property
   def dsQueryValue_by_sName(oSelf):
@@ -162,7 +175,8 @@ class cURL(cWithDebugOutput):
     return oSelf.__sFragment;
   @sFragment.setter
   def sFragment(oSelf, sFragment):
-    assert sFragment is None or isinstance(sFragment, str), "sFragment must be None or a string, not %s" % repr(sFragment);
+    assert sFragment is None or isinstance(sFragment, str), \
+        "sFragment must be None or an sASCII string, not %s" % repr(sFragment);
     oSelf.__sFragment = sFragment;
     
   ### Convenience ##############################################################
