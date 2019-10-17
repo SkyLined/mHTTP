@@ -9,6 +9,8 @@ gdtxDefaultPortAndSecure_by_sProtocol = {
   "https": (443, True),
 };
 
+UNSPECIFIED = {};
+
 class cURL(cWithDebugOutput):
   class cInvalidURLException(cException):
     pass;
@@ -25,14 +27,38 @@ class cURL(cWithDebugOutput):
         r"(?:[a-z][a-z0-9\-]*\.)*[a-z][a-z0-9\-]+", # DNS
       ]),
       r"(?:\:(\d+))?",
-      r"(?:\/(%s))?" % r"[^#?]*",
-      r"(?:\?(%s))?" % r"[^#]*",
-      r"(?:\#(%s))?" % r".*",
+      r"(\/[^#?]*)?"
+      r"(?:\?([^#]*))?",
+      r"(?:\#(.*))?",
     ]), sURL);
     if not oURLMatch:
       raise cURL.cInvalidURLException("Invalid URL", sURL);
     (sProtocol, sHostName, sPort, sPath, sQuery, sFragment) = oURLMatch.groups();
     return cURL(sProtocol, sHostName, long(sPort) if sPort is not None else None, sPath, sQuery, sFragment);
+  # There is also a non-static version that allows relative URLs:
+  def foFromRelativeString(oSelf, sURL, bMustBeRelative = False):
+    if not isinstance(sURL, (str, unicode)):
+      raise cURL.cInvalidURLException("Invalid relative URL", repr(sURL));
+    oRelativeURLMatch = re.match("^(?:%s)$" % "".join([
+      r"(\/?[^:#?]*)?",
+      r"(?:\?([^#]*))?",
+      r"(?:\#(.*))?",
+    ]), sURL);
+    if not oRelativeURLMatch:
+      if bMustBeRelative:
+        raise cURL.cInvalidURLException("Invalid relative URL", repr(sURL));
+      return cURL.foFromString(sURL);
+    (sPath, sQuery, sFragment) = oRelativeURLMatch.groups();
+    if sPath and not sPath.startswith("/"):
+      # Path is relative too
+      sPath = "/" + "/".join(oSelf.asPath[:-1] + [sPath]);
+    return oSelf.foClone(
+      sPath = sPath if sPath is not None else UNSPECIFIED,
+      # specifying the path but not the query will remove the query
+      sQuery = sQuery if sPath or sQuery is not None else UNSPECIFIED,
+      # specifying the path or query but not the fragment will remove the fragment
+      sFragment = sFragment if sPath or sQuery or sFragment is not None else UNSPECIFIED,
+    );
   
   def __init__(oSelf, sProtocol, sHostName, uPort = None, sPath = "/", sQuery = None, sFragment = None):
     assert isinstance(sProtocol, str), "sProtocol must be a string, not %s" % repr(sProtocol);
@@ -47,14 +73,14 @@ class cURL(cWithDebugOutput):
     oSelf.__sQuery = sQuery;
     oSelf.__sFragment = sFragment;
   
-  def foClone(oSelf, sProtocol = None, sHostName = None, uPort = None, sPath = None, sQuery = None, sFragment = None):
+  def foClone(oSelf, sProtocol = UNSPECIFIED, sHostName = UNSPECIFIED, uPort = UNSPECIFIED, sPath = UNSPECIFIED, sQuery = UNSPECIFIED, sFragment = UNSPECIFIED):
     return cURL(
-      sProtocol = sProtocol if sProtocol is not None else oSelf.__sProtocol,
-      sHostName = sHostName if sHostName is not None else oSelf.__sHostName,
-      uPort = uPort if uPort is not None else oSelf.__uPort,
-      sPath = sPath if sPath is not None else oSelf.__sPath,
-      sQuery = sQuery if sQuery is not None else oSelf.__sQuery,
-      sFragment = sFragment if sFragment is not None else oSelf.__sFragment,
+      sProtocol = sProtocol if sProtocol is not UNSPECIFIED else oSelf.__sProtocol,
+      sHostName = sHostName if sHostName is not UNSPECIFIED else oSelf.__sHostName,
+      uPort = uPort if uPort is not UNSPECIFIED else oSelf.__uPort,
+      sPath = sPath if sPath is not UNSPECIFIED else oSelf.__sPath,
+      sQuery = sQuery if sQuery is not UNSPECIFIED else oSelf.__sQuery,
+      sFragment = sFragment if sFragment is not UNSPECIFIED else oSelf.__sFragment,
     );
   
   ### Protocol #################################################################
@@ -159,7 +185,7 @@ class cURL(cWithDebugOutput):
   
   @property
   def sRelative(oSelf):
-    return "/%s%s%s" % (
+    return "%s%s%s" % (
       oSelf.__sPath,
       ("?%s" % oSelf.__sQuery) if oSelf.__sQuery is not None else "",
       ("#%s" % oSelf.__sFragment) if oSelf.__sFragment is not None else "",
