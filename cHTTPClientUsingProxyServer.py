@@ -304,14 +304,14 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
       );
       try:
         oConnectResponse = oConnectionToProxy.foGetResponseForRequest(oConnectRequest);
-      except oConnectionToProxy.cOutOfBandDataException:
-        return fxExitFunctionOutput(None, "The proxy sent out-of-band data before a CONNECT request could be sent.");
-      except oConnectionToProxy.cInvalidHTTPMessageException:
-        return fxExitFunctionOutput(None, "The proxy sent an invalid response to a CONNECT request.");
-      except oConnectionToProxy.cTransactionTimeoutException:
-        return fxExitFunctionOutput(None, "Timeout while sending a CONNECT request or waiting for a response from the proxy.");
-      except oConnectionToProxy.cConnectionClosedException:
-        return fxExitFunctionOutput(None, "The connection to the proxy was closed while sending a CONNECT request or waiting for a response from the proxy.");
+      except cHTTPConnection.cOutOfBandDataException:
+        return oSelf.fxExitFunctionOutput(None, "The proxy sent out-of-band data before a CONNECT request could be sent.");
+      except cHTTPConnection.cTransactionTimeoutException:
+        return oSelf.fxExitFunctionOutput(None, "Timeout while sending a CONNECT request or waiting for a response from the proxy.");
+      except cHTTPConnection.cConnectionClosedException:
+        return oSelf.fxExitFunctionOutput(None, "The connection to the proxy was closed while sending a CONNECT request or waiting for a response from the proxy.");
+      except iHTTPMessage.cInvalidHTTPMessageException:
+        return oSelf.fxExitFunctionOutput(None, "The proxy sent an invalid response to a CONNECT request.");
       if oConnectResponse is None:
         return fxExitFunctionOutput(None, "The connection to the proxy was closed before a CONNECT request could be sent.");
       if oConnectResponse.uStatusCode != 200:
@@ -322,9 +322,9 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
         oSSLContext = oSelf.__oCertificateStore.foGetSSLContextForClientWithHostName(oServerBaseURL.sHostName);
         try:
           oConnectionToProxy.fWrapInSSLContext(oSSLContext);
-        except oConnectionToProxy.cTransactionTimeoutException:
+        except cHTTPConnection.cTransactionTimeoutException:
           return oSelf.fxExitFunctionOutput(None, "Transaction timeout while negotiating secure connection with proxy %s." % oConnectionToProxy.fsToString());
-        except oConnectionToProxy.cConnectionClosedException:
+        except cHTTPConnection.cConnectionClosedException:
           return oSelf.fxExitFunctionOutput(None, "Connection closed while negotiating secure connection with proxy %s." % oConnectionToProxy.fsToString());
         except oSSLContext.cSSLException as oException:
           return oSelf.fxExitFunctionOutput(None, "Could not negotiate a secure connection with the client; is SSL pinning enabled? (error: %s)" % repr(oException));

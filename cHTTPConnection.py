@@ -1,6 +1,6 @@
 import json;
 from .cBufferedSocket import cBufferedSocket;
-from .cException import cException;
+from .cProtocolException import cProtocolException;
 from .cHTTPRequest import cHTTPRequest;
 from .cHTTPResponse import cHTTPResponse;
 from .iHTTPMessage import iHTTPMessage;
@@ -18,20 +18,7 @@ guDefaultMaxNumberOfChunks = 1000;
 gbDebugOutputFullHTTPMessages = True;
 
 class cHTTPConnection(cBufferedSocket):
-  # These are just here for so code that imports cHTTPConnection but not cBufferedSocket can use them:
-  cConnectToUnknownAddressException = cBufferedSocket.cConnectToUnknownAddressException;
-  cConnectToInvalidAddressException = cBufferedSocket.cConnectToInvalidAddressException;
-  cConnectTimeoutException = cBufferedSocket.cConnectTimeoutException;
-  cConnectionRefusedException = cBufferedSocket.cConnectionRefusedException;
-  cTransactionTimeoutException = cBufferedSocket.cTransactionTimeoutException;
-  cConnectionClosedException = cBufferedSocket.cConnectionClosedException;
-  
-  # This one is here so code that already cHTTPConnection but not iHTTPMessage can use it:
-  cInvalidHTTPMessageException = iHTTPMessage.cInvalidHTTPMessageException;
-  # These are specific to HTTP connections
-  class cHTTPConnectionException(cException):
-    pass; # Generic
-  class cOutOfBandDataException(cHTTPConnectionException):
+  class cOutOfBandDataException(cProtocolException):
     pass; # The remote send data when it was not expected to do so (i.e. the server send data before a request was made).
   
   def __init__(oSelf, oPythonSocket, bCreatedLocally = None, dxMetaData = None):
@@ -55,7 +42,7 @@ class cHTTPConnection(cBufferedSocket):
       if oSelf.bHasData:
         oSelf.fClose();
         sOutOfBandData = oSelf.fsReadBufferedData();
-        raise oSelf.cOutOfBandDataException(
+        raise cHTTPConnection.cOutOfBandDataException(
           "Out-of-band data was received.",
           sOutOfBandData,
         );
@@ -87,7 +74,7 @@ class cHTTPConnection(cBufferedSocket):
         oSelf.fClose();
         oMessage.fSetMetaData("bStopHandlingHTTPMessages", True);
         if bMessageMustBeSentToRemote:
-          raise oSelf.cConnectionClosedException("Connection closed before message could be sent.", None);
+          raise cBufferedSocket.cConnectionClosedException("Connection closed before message could be sent.", None);
         return oSelf.fxExitFunctionOutput(False, "Connection closed before message could be sent.");
       # Determine if connection should be closed for writing after sending the message
       bCloseConnection = oMessage.fxGetMetaData("bCloseConnection");
@@ -102,11 +89,11 @@ class cHTTPConnection(cBufferedSocket):
       sMessage = oMessage.fsSerialize();
       try:
         oSelf.fWrite(sMessage);
-      except oSelf.cTransactionTimeoutException as oException:
+      except cBufferedSocket.cTransactionTimeoutException as oException:
         oSelf.fClose();
         oMessage.fSetMetaData("bStopHandlingHTTPMessages", True);
         raise;
-      except oSelf.cConnectionClosedException as oException:
+      except cBufferedSocket.cConnectionClosedException as oException:
         oMessage.fSetMetaData("bStopHandlingHTTPMessages", True);
         raise;
       # Add this connection to the list of connections the message was send through in the metadata.
@@ -182,7 +169,7 @@ class cHTTPConnection(cBufferedSocket):
           uMaxHeaderNameSize = uMaxHeaderNameSize, uMaxHeaderValueSize = uMaxHeaderValueSize, uMaxNumberOfHeaders = uMaxNumberOfHeaders,
           uMaxBodySize = uMaxBodySize, uMaxChunkSize = uMaxChunkSize, uMaxNumberOfChunks = uMaxNumberOfChunks,
         );
-      except oSelf.cConnectionClosedException as oException:
+      except cBufferedSocket.cConnectionClosedException as oException:
         oException.sMessage = "Connection closed while receiving reponse.";
         raise;
       oSelf.fFireCallbacks("response received", oResponse);
@@ -214,19 +201,19 @@ class cHTTPConnection(cBufferedSocket):
       oSelf.fStatusOutput("Reading status line...");
       try:
         sStatusLine = oSelf.fsReadUntil("\r\n", uMaxStatusLineSize + 2);
-      except oSelf.cTooMuchDataException as oException:
+      except cBufferedSocket.cTooMuchDataException as oException:
         raise iHTTPMessage.cInvalidHTTPMessageException(
           "The status line was too large (>%d bytes)." % len(uMaxStatusLineSize),
           None,
         );
-      except oSelf.cTransactionTimeoutException as oException:
+      except cBufferedSocket.cTransactionTimeoutException as oException:
         sBufferedData = oSelf.fsReadBufferedData()
         # It's never ok to close the connection in the middle of a HTTP message or when one is expected
         if sBufferedData or bMessageMustBeReceived:
           oException.sMessage += " (attempt to read status line)";
           raise oException;
         return oSelf.fxExitFunctionOutput(None, "Transaction timeout");
-      except oSelf.cConnectionClosedException:
+      except cBufferedSocket.cConnectionClosedException:
         sBufferedData = oSelf.fsReadBufferedData()
         if sBufferedData:
           raise iHTTPMessage.cInvalidHTTPMessageException(
@@ -234,7 +221,7 @@ class cHTTPConnection(cBufferedSocket):
             "received status line = %s" % repr(sBufferedData),
           );
         if bMessageMustBeReceived:
-          raise oSelf.cConnectionClosedException(
+          raise cBufferedSocket.cConnectionClosedException(
             "Connection closed while reading status line",
             "received status line = %s" % repr(sBufferedData),
           );
@@ -285,15 +272,15 @@ class cHTTPConnection(cBufferedSocket):
         oSelf.fStatusOutput("Reading %d bytes response body..." % uContentLengthHeaderValue);
         try:
           sBody = oSelf.fsReadBytes(uContentLengthHeaderValue);
-        except oSelf.cTransactionTimeoutException as oException:
+        except cBufferedSocket.cTransactionTimeoutException as oException:
           sReceivedBody = oSelf.fsReadBufferedData();
-          raise oSelf.cTransactionTimeoutException(
+          raise cBufferedSocket.cTransactionTimeoutException(
             "The body was not received because the transaction timed out after receiving %d/%d bytes." % (len(sReceivedBody), uContentLengthHeaderValue),
             "received body = %d bytes (%s)" % (len(sReceivedBody), repr(sReceivedBody)),
           );
-        except oSelf.cConnectionClosedException as oException:
+        except cBufferedSocket.cConnectionClosedException as oException:
           sReceivedBody = oSelf.fsReadBufferedData();
-          raise oSelf.cInvalidHTTPMessageException(
+          raise cBufferedSocket.cInvalidHTTPMessageException(
             "The body was not received because the connection was closed by remote after sending %d/%d bytes." % (len(sReceivedBody), uContentLengthHeaderValue),
             "received body = %d bytes (%s)" % (len(sReceivedBody), repr(sReceivedBody)),
           );
@@ -306,14 +293,14 @@ class cHTTPConnection(cBufferedSocket):
         oSelf.fStatusOutput("Reading response body until connection is closed...");
         try:
           sBody = oSelf.fsRead(uMaxNumberOfBytes = uMaxBodySize);
-        except oSelf.cTooMuchDataException as oException:
+        except cBufferedSocket.cTooMuchDataException as oException:
           raise iHTTPMessage.cInvalidHTTPMessageException(
             "The body was too large (>%d bytes)." % len(uMaxBodySize),
             None,
           );
-        except oSelf.cTransactionTimeoutException as oException:
+        except cBufferedSocket.cTransactionTimeoutException as oException:
           sReceivedBody = oSelf.fsReadBufferedData();
-          raise oSelf.cTransactionTimeoutException(
+          raise cBufferedSocket.cTransactionTimeoutException(
             "The body was not received because the transaction timed out after receiving %d bytes." % len(sReceivedBody),
             "received body = %d bytes (%s)" % (len(sReceivedBody), repr(sReceivedBody)),
           );
@@ -358,15 +345,15 @@ class cHTTPConnection(cBufferedSocket):
         oSelf.fStatusOutput("Reading header line...");
         try:
           sLine = oSelf.fsReadUntil("\r\n", uMaxNumberOfBytes = uMaxHeaderLineSize + 2);
-        except oSelf.cTooMuchDataException as oException:
+        except cBufferedSocket.cTooMuchDataException as oException:
           raise iHTTPMessage.cInvalidHTTPMessageException(
             "A header line was too large (>%d bytes)." % len(uMaxHeaderLineSize),
             None,
           );
-        except oSelf.cTransactionTimeoutException as oException:
+        except cBufferedSocket.cTransactionTimeoutException as oException:
           oException.sMessage += " (attempt to read header line)";
           raise oException;
-        except oSelf.cConnectionClosedException as oException:
+        except cBufferedSocket.cConnectionClosedException as oException:
           sBufferedData = oSelf.fsReadBufferedData()
           raise iHTTPMessage.cInvalidHTTPMessageException(
             "Connection closed by remote while reading header line.",
@@ -416,15 +403,15 @@ class cHTTPConnection(cBufferedSocket):
         # Read size in the chunk header
         try:
           sChunkHeader = oSelf.fsReadUntil("\r\n", uMaxChunkSizeChars + 2);
-        except oSelf.cTooMuchDataException as oException:
+        except cBufferedSocket.cTooMuchDataException as oException:
           raise iHTTPMessage.cInvalidHTTPMessageException(
             "A body chunk header line was too large (>%d bytes)." % len(uMaxChunkSizeChars),
             None,
           );
-        except oSelf.cTransactionTimeoutException as oException:
+        except cBufferedSocket.cTransactionTimeoutException as oException:
           oException.sMessage += " (attempt to read body chunk header line)";
           raise oException;
-        except oSelf.cConnectionClosedException as oException:
+        except cBufferedSocket.cConnectionClosedException as oException:
           sBufferedData = oSelf.fsReadBufferedData()
           raise iHTTPMessage.cInvalidHTTPMessageException(
             "Connection closed by remote while reading body chunk header.",
@@ -447,7 +434,7 @@ class cHTTPConnection(cBufferedSocket):
             );
           else:
             oSelf.fClose();
-            raise oSelf.cTransactionTimeoutException(
+            raise cBufferedSocket.cTransactionTimeoutException(
               "A body chunk header line was not received because the transaction timed out.",
               sData,
             );
@@ -489,10 +476,10 @@ class cHTTPConnection(cBufferedSocket):
         oSelf.fStatusOutput("Reading response body chunk (%d bytes)..." % uChunkSize);
         try:
           sChunkAndCRLF = oSelf.fsReadBytes(uChunkSize + 2);
-        except oSelf.cTransactionTimeoutException as oException:
+        except cBufferedSocket.cTransactionTimeoutException as oException:
           oException.sMessage += " (attempt to read body chunk)";
           raise oException;
-        except oSelf.cConnectionClosedException as oException:
+        except cBufferedSocket.cConnectionClosedException as oException:
           sBufferedData = oSelf.fsReadBufferedData()
           raise iHTTPMessage.cInvalidHTTPMessageException(
             "Connection closed while reading body chunk header.",

@@ -1,5 +1,5 @@
 import socket, ssl, time;
-from .cException import cException;
+from .cConnectionException import cConnectionException;
 from .fbSocketExceptionIsClosedConnection import fbSocketExceptionIsClosedConnection;
 from .fbSocketExceptionIsTimeout import fbSocketExceptionIsTimeout;
 from mDebugOutput import cWithDebugOutput;
@@ -9,21 +9,19 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
   nDefaultConnectTimeoutInSeconds = 5;
   uSocketReceiveChunkSize = 0x10000; # How many bytes to try to read if we do not know how many are comming.
   
-  class cBufferedSocketException(cException):
+  class cConnectToUnknownAddressException(cConnectionException):
     pass;
-  class cConnectToUnknownAddressException(cBufferedSocketException):
+  class cConnectToInvalidAddressException(cConnectionException):
     pass;
-  class cConnectToInvalidAddressException(cBufferedSocketException):
+  class cConnectTimeoutException(cConnectionException):
     pass;
-  class cConnectTimeoutException(cBufferedSocketException):
+  class cConnectionRefusedException(cConnectionException):
     pass;
-  class cConnectionRefusedException(cBufferedSocketException):
+  class cTransactionTimeoutException(cConnectionException):
     pass;
-  class cTransactionTimeoutException(cBufferedSocketException):
+  class cConnectionClosedException(cConnectionException):
     pass;
-  class cConnectionClosedException(cBufferedSocketException):
-    pass;
-  class cTooMuchDataException(cBufferedSocketException):
+  class cTooMuchDataException(cConnectionException):
     pass;
   
   @classmethod
@@ -347,7 +345,7 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
   def __fRaiseTransactionTimeoutExceptionIfApplicable(oSelf, sWhile):
     if oSelf.fbTransactionTimeout():
       oSelf.fClose();
-      raise oSelf.cTransactionTimeoutException(
+      raise cBufferedSocket.cTransactionTimeoutException(
         "Transaction timeout %s" % sWhile,
         "timeout = %ss, buffered data = %d bytes (%s)" % (oSelf.__nTransactionTimeoutInSeconds, len(oSelf.__sBuffer), repr(oSelf.__sBuffer)),
       );
@@ -355,7 +353,7 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
   def __fRaiseConnectionClosedWhileReadingExceptionIfApplicable(oSelf, sWhile):
     if not oSelf.bOpenForReading:
       oSelf.fClose();
-      raise oSelf.cConnectionClosedException(
+      raise cBufferedSocket.cConnectionClosedException(
         "Connection closed %s" % sWhile,
         "buffered data = %d bytes (%s)" % (len(oSelf.__sBuffer), repr(oSelf.__sBuffer)),
       );
@@ -363,7 +361,7 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
   def __fRaiseConnectionClosedWhileWritingExceptionIfApplicable(oSelf, sWhile):
     if not oSelf.bOpenForWriting:
       oSelf.fClose();
-      raise oSelf.cConnectionClosedException(
+      raise cBufferedSocket.cConnectionClosedException(
         "Connection closed %s" % sWhile,
         "",
       );
@@ -391,7 +389,7 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
             break;
         if len(oSelf.__sBuffer) > uMaxNumberOfBytes:
           oSelf.fClose();
-          raise oSelf.cTooMuchDataException(
+          raise cBufferedSocket.cTooMuchDataException(
             "Received too much data %s" % sExceptionWhile,
             "buffered data = %d bytes (%s)" % (len(oSelf.__sBuffer), repr(oSelf.__sBuffer)),
           );
@@ -449,9 +447,9 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
           uBytesToRead = uNextFindStartIndex + len(sBytes) - len(oSelf.__sBuffer);
           if uBytesToRead <= 0:
             break;
-          if uMaxNumberOfBytes is not None and len(oSelf.__sBuffer) + uBytesToRead >= uMaxNumberOfBytes:
+          if uMaxNumberOfBytes is not None and len(oSelf.__sBuffer) + uBytesToRead > uMaxNumberOfBytes:
             oSelf.fClose();
-            raise oSelf.cTooMuchDataException(
+            raise cBufferedSocket.cTooMuchDataException(
               "Start of %d byte marker not found after reading %d/%d bytes." % \
                   (len(sBytes), len(oSelf.__sBuffer), uMaxNumberOfBytes),
               "buffered data = %d bytes (%s)" % (len(oSelf.__sBuffer), repr(oSelf.__sBuffer)),

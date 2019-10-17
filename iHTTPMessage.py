@@ -4,7 +4,7 @@ try:
 except:
   cBrotli = None;
 from mDebugOutput import cWithDebugOutput;
-from .cException import cException;
+from .cProtocolException import cProtocolException;
 from .fsURLEncodedStringFromNameValuePairs import fsURLEncodedStringFromNameValuePairs;
 from .fdsURLDecodedNameValuePairsFromString import fdsURLDecodedNameValuePairsFromString;
 
@@ -36,7 +36,7 @@ class iHTTPMessage(cWithDebugOutput):
     },
   };
   
-  class cInvalidHTTPMessageException(cException):
+  class cInvalidHTTPMessageException(cProtocolException):
     pass;
   
   def __init__(oSelf, sHTTPVersion = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None, dxMetaData = None):
