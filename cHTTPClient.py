@@ -9,14 +9,6 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   nDefaultConnectTimeoutInSeconds = 10;
   nDefaultTransactionTimeoutInSeconds = 10;
   
-  cConnectToUnknownAddressException = cHTTPConnection.cConnectToUnknownAddressException;
-  cConnectToInvalidAddressException = cHTTPConnection.cConnectToInvalidAddressException;
-  cConnectTimeoutException = cHTTPConnection.cConnectTimeoutException;
-  cConnectionRefusedException = cHTTPConnection.cConnectionRefusedException;
-  cConnectionClosedException = cHTTPConnection.cConnectionClosedException;
-  cOutOfBandDataException = cHTTPConnection.cOutOfBandDataException;
-  cInvalidHTTPMessageException = cHTTPConnection.cInvalidHTTPMessageException;
-  
   def __init__(oSelf, oCertificateStore = None, uMaxConnectionsToServer = None):
     oSelf.__oCertificateStore = oCertificateStore;
     oSelf.__uMaxConnectionsToServer = uMaxConnectionsToServer or oSelf.uDefaultMaxConnectionsToServer;
