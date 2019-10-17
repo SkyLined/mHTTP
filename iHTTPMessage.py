@@ -20,7 +20,7 @@ def fsASCII(sData, sDataTypeDescription):
     raise AssertionError("%s cannot contain Unicode characters: %s" % (sDataTypeDescription, repr(sData)));
 
 class iHTTPMessage(cWithDebugOutput):
-  asSupportedCompressionTypes = ["br", "deflate", "gzip", "x-gzip", "zlib"];
+  asSupportedCompressionTypes = ["deflate", "gzip", "x-gzip", "zlib"] + (["br"] if cBrotli else []);
   ddDefaultHeader_sValue_by_sName_by_sHTTPVersion = {
     "HTTP/1.0": {
       "Connection": "Close",
