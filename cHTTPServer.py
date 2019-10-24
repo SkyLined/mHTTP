@@ -20,20 +20,9 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
     oSelf.__nWaitForRequestTimeoutInSeconds = nWaitForRequestTimeoutInSeconds or oSelf.nDefaultWaitForRequestTimeoutInSeconds;
     
     oSelf.__bServerSocketClosed = False;
-    txAddress = (oSelf.__oURL.sHostName, oSelf.__oURL.uPort);
-    oClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
-#    try:
-#      oClientSocket.connect(txAddress);
-#    except Exception as oException:
-#      print repr(oException);
-#    else:
-#      raise AssertionError("%s:%d is already in use" % txAddress);
 
     oSelf.__oServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
-#    oSelf.__oServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1);
     oSelf.__oServerSocket.settimeout(0);
-    oSelf.__oServerSocket.bind(txAddress);
-    oSelf.__bBound = True;
     oSelf.__oMainLock = cLock("%s.__oMainLock" % oSelf.__class__.__name__);
     oSelf.__aoOpenConnections = [];
     oSelf.__aoRunningThreads = [];
@@ -132,6 +121,10 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
     try:
       oSelf.__oMainLock.fAcquire();
       try:
+        if not oSelf.__bBound:
+          txAddress = (oSelf.__oURL.sHostName, oSelf.__oURL.uPort);
+          oSelf.__oServerSocket.bind(txAddress);
+          oSelf.__bBound = True;
         assert not oSelf.__bStopping, \
             "Cannot start after stopping";
         oSelf.__bStarted = True;
