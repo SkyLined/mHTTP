@@ -21,18 +21,18 @@ def fsASCII(sData, sDataTypeDescription):
 
 class iHTTPMessage(cWithDebugOutput):
   asSupportedCompressionTypes = ["deflate", "gzip", "x-gzip", "zlib"] + (["br"] if cBrotli else []);
-  ddDefaultHeader_sValue_by_sName_by_sHTTPVersion = {
+  ddDefaultHeader_sValue_by_sLowerName_by_sHTTPVersion = {
     "HTTP/1.0": {
-      "Connection": "Close",
-      "Cache-Control": "No-Cache, Must-Revalidate",
-      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
-      "Pragma": "No-Cache",
+      "connection": "Close",
+      "cache-control": "No-Cache, Must-Revalidate",
+      "expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
+      "pragma": "No-Cache",
     },
     "HTTP/1.1": {
-      "Connection": "Keep-Alive",
-      "Cache-Control": "No-Cache, Must-Revalidate",
-      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
-      "Pragma": "No-Cache",
+      "connection": "Keep-Alive",
+      "cache-control": "No-Cache, Must-Revalidate",
+      "expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
+      "pragma": "No-Cache",
     },
   };
   
@@ -41,27 +41,37 @@ class iHTTPMessage(cWithDebugOutput):
   
   def __init__(oSelf, sHTTPVersion = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None, dxMetaData = None):
     assert sBody is None or sData is None, \
-          "Cannot provide both sBody and sData!";
+          "Cannot provide both sBody (%s) and sData (%s)!" % (repr(sBody), repr(sData));
     assert sBody is None or asBodyChunks is None, \
-          "Cannot provide both sBody and asBodyChunks!";
+          "Cannot provide both sBody (%s) and asBodyChunks (%s)!" % (repr(sBody), repr(asBodyChunks));
     assert sData is None or asBodyChunks is None, \
-          "Cannot provide both sData and asBodyChunks!";
+          "Cannot provide both sData (%s) and asBodyChunks (%s)!" % (repr(sData), repr(asBodyChunks));
     oSelf.__sHTTPVersion = sHTTPVersion if sHTTPVersion else "HTTP/1.1";
-    dDefaultHeader_sValue_by_sName = oSelf.ddDefaultHeader_sValue_by_sName_by_sHTTPVersion.get(oSelf.__sHTTPVersion);
-    assert dDefaultHeader_sValue_by_sName, \
+    dDefaultHeader_sValue_by_sLowerName = oSelf.ddDefaultHeader_sValue_by_sLowerName_by_sHTTPVersion.get(oSelf.__sHTTPVersion);
+    assert dDefaultHeader_sValue_by_sLowerName, \
         "Invalid HTTP version %s" % sHTTPVersion;
-    oSelf.__dHeader_sValue_by_sName = {};
-    for (sName, sValue) in (dHeader_sValue_by_sName if dHeader_sValue_by_sName is not None else dDefaultHeader_sValue_by_sName).items():
-      oSelf.__dHeader_sValue_by_sName[sName] = sValue;
+    oSelf.__dHeader_sValue_by_sLowerName = {};
+    for (sName, sValue) in (
+        dHeader_sValue_by_sName if dHeader_sValue_by_sName is not None
+        else dDefaultHeader_sValue_by_sLowerName
+    ).items():
+      sLowerName = sName.lower();
+      oSelf.__dHeader_sValue_by_sLowerName[sLowerName] = sValue;
     oSelf.__sBody = None;
     oSelf.__asBodyChunks = None;
     oSelf.__dxMetaData = dxMetaData or {};
-    if sBody:
+    if sBody is not None:
       oSelf.fSetBody(sBody);
-    elif sData:
+    elif sData is not None:
       oSelf.fSetData(sData);
-    if asBodyChunks:
+    if asBodyChunks is not None:
       oSelf.fSetBodyChunks(asBodyChunks);
+    if oSelf.bChunked:
+      assert oSelf.__asBodyChunks is not None, \
+          "Missing asBodyChunks!?";
+    else:
+      assert oSelf.__asBodyChunks is  None, \
+          "Unexpected asBodyChunks";
   
   def fbHasMetaData(oSelf, sName):
     return sName in oSelf.__dxMetaData;
@@ -78,30 +88,28 @@ class iHTTPMessage(cWithDebugOutput):
     oSelf.__sHTTPVersion = sHTTPVersion;
   
   def fasGetHeaderNames(oSelf):
-    return oSelf.__dHeader_sValue_by_sName.keys();
+    return oSelf.__dHeader_sValue_by_sLowerName.keys();
   def fbHasHeaderValue(oSelf, sName, sValue = None):
     sLowerName = sName.lower();
-    for sName in oSelf.__dHeader_sValue_by_sName.keys():
-      if sLowerName == sName.lower():
-        return True if sValue is None else sValue.lower() == oSelf.__dHeader_sValue_by_sName[sName].strip().lower();
+    if sLowerName in oSelf.__dHeader_sValue_by_sLowerName:
+      return (
+        True if sValue is None
+        else sValue.lower() == oSelf.__dHeader_sValue_by_sLowerName[sLowerName].lower()
+      );
     return False;
   def fsGetHeaderValue(oSelf, sName):
     sLowerName = sName.lower();
-    for (sName, sValue) in oSelf.__dHeader_sValue_by_sName.items():
-      if sLowerName == sName.lower():
-        return sValue;
-    return None;
+    return oSelf.__dHeader_sValue_by_sLowerName.get(sLowerName);
   def fSetHeaderValue(oSelf, sName, sValue):
-    oSelf.fRemoveHeader(sName);
-    oSelf.__dHeader_sValue_by_sName[sName] = sValue;
+    sLowerName = sName.lower();
+    oSelf.__dHeader_sValue_by_sLowerName[sLowerName] = sValue;
   def fRemoveHeader(oSelf, sName):
     oSelf.fbRemoveHeader(sName);
   def fbRemoveHeader(oSelf, sName):
     sLowerName = sName.lower();
-    for sName in oSelf.__dHeader_sValue_by_sName.keys():
-      if sLowerName == sName.lower():
-        del oSelf.__dHeader_sValue_by_sName[sName];
-        return True;
+    if sLowerName in oSelf.__dHeader_sValue_by_sLowerName:
+      del oSelf.__dHeader_sValue_by_sLowerName[sLowerName];
+      return True;
     return False;
   
   @property
@@ -207,6 +215,8 @@ class iHTTPMessage(cWithDebugOutput):
   def sBody(oSelf):
     if not oSelf.bChunked:
       return oSelf.__sBody;
+    assert not oSelf.bChunked or oSelf.__asBodyChunks is not None, \
+        "wtf!?";
     return "".join([
       "%X\r\n%s\r\n" % (len(sBodyChunk), sBodyChunk) 
       for sBodyChunk in oSelf.__asBodyChunks
@@ -310,7 +320,7 @@ class iHTTPMessage(cWithDebugOutput):
     return "\r\n".join([
       oSelf.fsGetStatusLine(),
     ] + [
-      "%s: %s" % (sName, sValue) for (sName, sValue) in oSelf.__dHeader_sValue_by_sName.items()
+      "%s: %s" % (sLowerName, sValue) for (sLowerName, sValue) in oSelf.__dHeader_sValue_by_sLowerName.items()
     ] + [
       "",
       oSelf.sBody or "",

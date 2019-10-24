@@ -237,13 +237,13 @@ class cHTTPConnection(cBufferedSocket):
         oSelf.fClose();
         raise;
       oSelf.fStatusOutput("Reading headers...");
-      dHeader_sValue_by_sName = oSelf.__fdsReadHeaders(uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders);
+      dHeader_sValue_by_sLowerName = oSelf.__fdsReadHeaders(uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders);
       # Find out what headers are present
       uContentLengthHeaderValue = None;
       bTransferEncodingChunkedHeaderPresent = None;
       bConnectionCloseHeaderPresent = None;
-      for (sName, sValue) in dHeader_sValue_by_sName.items():
-        if sName == "content-length":
+      for (sLowerName, sValue) in dHeader_sValue_by_sLowerName.items():
+        if sLowerName == "content-length":
           if bTransferEncodingChunkedHeaderPresent:
             oSelf.fClose();
             raise iHTTPMessage.cInvalidHTTPMessageException(
@@ -265,15 +265,36 @@ class cHTTPConnection(cBufferedSocket):
               "The content-length header value was too large (>%d bytes)." % uMaxBodySize,
               uContentLengthHeaderValue,
             );
-        elif sName == "transfer-encoding" and sValue.lower() == "chunked":
+        elif sLowerName == "transfer-encoding" and sValue.lower() == "chunked":
           bTransferEncodingChunkedHeaderPresent = True;
-        elif sName == "connection" and sValue.lower() == "close":
+        elif sLowerName == "connection" and sValue.lower() == "close":
           bConnectionCloseHeaderPresent = True;
       
       sBody = None;
       asBodyChunks = None;
       
-      if uContentLengthHeaderValue is not None:
+      if bTransferEncodingChunkedHeaderPresent:
+        if uContentLengthHeaderValue is not None and uContentLengthHeaderValue < uMaxBodySize:
+          oSelf.fStatusOutput("Reading chunked response body WITH Content-Length = %d..." % uContentLengthHeaderValue);
+          uMaxBodySize = uContentLengthHeaderValue;
+        else:
+          oSelf.fStatusOutput("Reading chunked response body...");
+        asBodyChunks = oSelf.__fasReadBodyChunks(uMaxBodySize, uMaxChunkSize, uMaxNumberOfChunks);
+        # More "headers" may follow. I am not sure how to handle multiple
+        # Note: we should really check the value here and handle duplicates;
+        # we are simply overwriting the values, so we may have just read a
+        # chunked-encoded body and now remove the header that
+        for (sLowerName, sValue) in oSelf.__fdsReadHeaders(uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders):
+          if sLowerName in ("transfer-encoding", "content-length"):
+            raise cBufferedSocket.cInvalidHTTPMessageException(
+              "The message was not valid because it contained a %s header after the chunked body." % sLowerName,
+              "%s: %s" % (repr(sLower), repr(sValue)),
+            );
+          if sLowername in dHeader_sValue_by_sLowerName:
+            dHeader_sValue_by_sLowerName[sLowerName] += " " + sValue;
+          else:
+            dHeader_sValue_by_sLowerName[sLowerName] = sValue;
+      elif uContentLengthHeaderValue is not None:
         oSelf.fStatusOutput("Reading %d bytes response body..." % uContentLengthHeaderValue);
         try:
           sBody = oSelf.fsReadBytes(uContentLengthHeaderValue);
@@ -289,11 +310,6 @@ class cHTTPConnection(cBufferedSocket):
             "The body was not received because the connection was closed by remote after sending %d/%d bytes." % (len(sReceivedBody), uContentLengthHeaderValue),
             "received body = %d bytes (%s)" % (len(sReceivedBody), repr(sReceivedBody)),
           );
-      elif bTransferEncodingChunkedHeaderPresent:
-        oSelf.fStatusOutput("Reading chunked response body...");
-        asBodyChunks = oSelf.__fasReadBodyChunks(uMaxBodySize, uMaxChunkSize, uMaxNumberOfChunks);
-        # More "headers" may follow
-        dHeader_sValue_by_sName.update(oSelf.__fdsReadHeaders(uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders));
       elif bConnectionCloseHeaderPresent:
         oSelf.fStatusOutput("Reading response body until connection is closed...");
         try:
@@ -319,7 +335,7 @@ class cHTTPConnection(cBufferedSocket):
       if bConnectionCloseHeaderPresent:
         oSelf.fCloseForReading();
       oMessage = cHTTPMessage(
-        dHeader_sValue_by_sName = dHeader_sValue_by_sName,
+        dHeader_sValue_by_sName = dHeader_sValue_by_sLowerName,
         sBody = sBody,
         asBodyChunks = asBodyChunks,
         dxMetaData = {
@@ -343,8 +359,8 @@ class cHTTPConnection(cBufferedSocket):
     # Given the max size of a name and value and allowing for ": " between them, we can calculate the max size of a header line.
     uMaxHeaderLineSize = uMaxHeaderNameSize + 2 + uMaxHeaderValueSize;
     try:
-      dHeader_sValue_by_sName = {};
-      sLastHeaderName = None;
+      dHeader_sValue_by_sLowerName = {};
+      sLastHeaderLowerName = None;
       uMaxHeaderLineSize = uMaxHeaderNameSize  + uMaxHeaderValueSize;
       while 1:
         oSelf.fStatusOutput("Reading header line...");
@@ -369,13 +385,13 @@ class cHTTPConnection(cBufferedSocket):
           oSelf.fStatusOutput("Encountered end of headers.");
           break; # Empty line == end of headers;
         if sLine[0] in " \t": # header continuation
-          if sLastHeaderName is None:
+          if sLastHeaderLowerName is None:
             oSelf.fClose();
             raise iHTTPMessage.cInvalidHTTPMessageException(
               "A header line continuation was sent on the first header line, which is not valid.",
               sLine,
             );
-          dHeader_sValue_by_sName[sLastHeaderName] += sLine.rstrip();
+          dHeader_sValue_by_sLowerName[sLastHeaderLowerName] += sLine.rstrip();
         else: # header
           asHeaderNameAndValue = sLine.split(":", 1);
           if len(asHeaderNameAndValue) != 2:
@@ -385,14 +401,14 @@ class cHTTPConnection(cBufferedSocket):
               sLine,
             );
           sHeaderName, sHeaderValue = asHeaderNameAndValue;
-          sHeaderName = sHeaderName.lower();
+          sHeaderLowerName = sHeaderName.lower();
           sHeaderValue = sHeaderValue.strip();
-          if sHeaderName in dHeader_sValue_by_sName: # multiple values with the same name are concatinated
-            dHeader_sValue_by_sName[sHeaderName] += " " + sHeaderValue;
+          if sHeaderLowerName == sLastHeaderLowerName: # multiple values with the same name are concatinated
+            dHeader_sValue_by_sLowerName[sHeaderLowerName] += " " + sHeaderValue;
           else:
-            dHeader_sValue_by_sName[sHeaderName] = sHeaderValue;
-          sLastHeaderName = sHeaderName;
-      return oSelf.fxExitFunctionOutput(dHeader_sValue_by_sName);
+            dHeader_sValue_by_sLowerName[sHeaderLowerName] = sHeaderValue;
+          sLastHeaderLowerName = sHeaderLowerName;
+      return oSelf.fxExitFunctionOutput(dHeader_sValue_by_sLowerName);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
