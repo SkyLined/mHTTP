@@ -131,13 +131,13 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   
   def foGetResponseForURL(oSelf,
     oURL,
-    sMethod = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None,
+    sMethod = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
     bCheckHostName = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, dHeader_sValue_by_sName = dHeader_sValue_by_sName, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
     try:
-      (oRequest, oResponse) = oSelf.foGetRequestAndResponseForURL(oURL, sMethod, dHeader_sValue_by_sName, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      (oRequest, oResponse) = oSelf.foGetRequestAndResponseForURL(oURL, sMethod, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
       return oSelf.fxExitFunctionOutput(oResponse);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -145,13 +145,13 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   
   def foGetRequestAndResponseForURL(oSelf,
     oURL,
-    sMethod = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None,
+    sMethod = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
     bCheckHostName = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, dHeader_sValue_by_sName = dHeader_sValue_by_sName, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
     try:
-      oRequest = oSelf.foGetRequestForURL(oURL, sMethod, dHeader_sValue_by_sName, sBody, sData, asBodyChunks);
+      oRequest = oSelf.foGetRequestForURL(oURL, sMethod, oHTTPHeaders, sBody, sData, asBodyChunks);
       oResponse = oSelf.foGetResponseForRequestAndURL(oRequest, oURL, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
       return oSelf.fxExitFunctionOutput((oRequest, oResponse));
     except Exception as oException:
@@ -160,22 +160,22 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   
   def foGetRequestForURL(oSelf,
     oURL,
-    sMethod = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None,
+    sMethod = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, dHeader_sValue_by_sName = dHeader_sValue_by_sName, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks);
     try:
       oRequest = cHTTPRequest(
         sURL = oURL.sRelative,
         sMethod = sMethod or "GET",
-        dHeader_sValue_by_sName = dHeader_sValue_by_sName,
+        oHTTPHeaders = oHTTPHeaders,
         sBody = sBody,
         sData = sData, 
         asBodyChunks = asBodyChunks,
       );
-      if not oRequest.fbHasHeaderValue("Host"):
-        oRequest.fSetHeaderValue("Host", oURL.sHostNameAndPort);
-      if not oRequest.fbHasHeaderValue("Accept-Encoding"):
-        oRequest.fSetHeaderValue("Accept-Encoding", ", ".join(oRequest.asSupportedCompressionTypes));
+      if not oRequest.oHTTPHeaders.fbHasValue("Host"):
+        oRequest.oHTTPHeaders.fbSet("Host", oURL.sHostNameAndPort);
+      if not oRequest.oHTTPHeaders.fbHasValue("Accept-Encoding"):
+        oRequest.oHTTPHeaders.fbSet("Accept-Encoding", ", ".join(oRequest.asSupportedCompressionTypes));
       return oSelf.fxExitFunctionOutput(oRequest);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);

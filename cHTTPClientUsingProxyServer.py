@@ -2,6 +2,7 @@ import time;
 from .cCertificateStore import cCertificateStore;
 from .cHTTPClient import cHTTPClient;
 from .cHTTPConnection import cHTTPConnection;
+from .cHTTPHeaders import cHTTPHeaders;
 from .cHTTPRequest import cHTTPRequest;
 from .iHTTPMessage import iHTTPMessage;
 from mDebugOutput import cWithDebugOutput;
@@ -93,13 +94,13 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
   
   def foGetResponseForURL(oSelf,
     oURL,
-    sMethod = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None,
+    sMethod = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
     bCheckHostName = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, dHeader_sValue_by_sName = dHeader_sValue_by_sName, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
     try:
-      (oRequest, oResponse) = oSelf.foGetRequestAndResponseForURL(oURL, sMethod, dHeader_sValue_by_sName, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      (oRequest, oResponse) = oSelf.foGetRequestAndResponseForURL(oURL, sMethod, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
       return oSelf.fxExitFunctionOutput(oResponse);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -107,13 +108,13 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
   
   def foGetRequestAndResponseForURL(oSelf,
     oURL,
-    sMethod = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None,
+    sMethod = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
     bCheckHostName = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, dHeader_sValue_by_sName = dHeader_sValue_by_sName, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
     try:
-      oRequest = oSelf.foGetRequestForURL(oURL, sMethod, dHeader_sValue_by_sName, sBody, sData, asBodyChunks);
+      oRequest = oSelf.foGetRequestForURL(oURL, sMethod, oHTTPHeaders, sBody, sData, asBodyChunks);
       oResponse = oSelf.foGetResponseForRequestAndURL(oRequest, oURL, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
       return oSelf.fxExitFunctionOutput((oRequest, oResponse));
     except Exception as oException:
@@ -122,26 +123,27 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
   
   def foGetRequestForURL(oSelf,
     oURL,
-    sMethod = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None,
+    sMethod = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, dHeader_sValue_by_sName = dHeader_sValue_by_sName, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks);
     try:
-      if dHeader_sValue_by_sName:
-        for sHeaderName in dHeader_sValue_by_sName:
-          assert sHeaderName.lower() not in ["proxy-authenticate", "proxy-authorization", "proxy-connection"], \
-              "%s header is not implemented" % sName;
+      if oHTTPHeaders is not None:
+        for sName in ["Proxy-Authenticate", "Proxy-Authorization", "Proxy-Connection"]:
+          sExistingName = oHTTPHeaders.fsGetNameCasing(sName);
+          assert sExistingName is None, \
+              "%s header is not implemented!" % repr(sExistingName);
       oRequest = cHTTPRequest(
         # Secure requests are made directly from the server after a CONNECT request, so the URL must be relative.
         # Non-secure requests are made to the proxy, so the URL must be absolute.
         sURL = oURL.sRelative if oURL.bSecure else oURL.sAbsolute,
         sMethod = sMethod or "GET",
-        dHeader_sValue_by_sName = dHeader_sValue_by_sName,
+        oHTTPHeaders = oHTTPHeaders,
         sBody = sBody,
         sData = sData,
         asBodyChunks = asBodyChunks,
       );
-      if not oRequest.fbHasHeaderValue("Host"):
-        oRequest.fSetHeaderValue("Host", oURL.sHostNameAndPort);
+      if not oRequest.oHTTPHeaders.fbHasValue("Host"):
+        oRequest.oHTTPHeaders.fbSet("Host", oURL.sHostNameAndPort);
       return oSelf.fxExitFunctionOutput(oRequest);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -301,10 +303,10 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
       oConnectRequest = cHTTPRequest(
         sURL = oServerBaseURL.sAddress,
         sMethod = "CONNECT",
-        dHeader_sValue_by_sName = {
-          "host": oServerBaseURL.sAddress,
-          "connection": "keep-alive",
-        },
+        oHTTPHeaders = cHTTPHeaders({
+          "Host": oServerBaseURL.sAddress,
+          "Connection": "Keep-Alive",
+        }),
       );
       try:
         oConnectResponse = oConnectionToProxy.foGetResponseForRequest(oConnectRequest);

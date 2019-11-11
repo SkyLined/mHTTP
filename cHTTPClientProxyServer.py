@@ -2,11 +2,25 @@ from .cBufferedSocket import cBufferedSocket;
 from .cHTTPServer import cHTTPServer;
 from .cHTTPClient import cHTTPClient;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
+from .cHTTPHeaders import cHTTPHeaders;
 from .cHTTPResponse import cHTTPResponse;
 from .cURL import cURL;
+from .dsHTTPCommonReasonPhrase_by_uStatusCode import dsHTTPCommonReasonPhrase_by_uStatusCode;
 from .iHTTPMessage import iHTTPMessage;
 from mDebugOutput import cWithDebugOutput;
 from mMultiThreading import cLock, cThread, cWithCallbacks;
+
+def foGetErrorResponse(sHTTPVersion, uStatusCode, sBody):
+  return cHTTPResponse(
+    sHTTPVersion = sHTTPVersion,
+    uStatusCode = uStatusCode,
+    sReasonPhrase = dsHTTPCommonReasonPhrase_by_uStatusCode[uStatusCode],
+    oHTTPHeaders = cHTTPHeaders({
+      "Connection": "Close",
+      "Content-Type": "text/plain",
+    }),
+    sBody = sBody,
+  );
 
 class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
   nDefaultSecureConnectionTimeoutInSeconds = None;
@@ -248,25 +262,25 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
     # in the SSL interception code (i.e. __foRequestHandler):
     oSelf.oHTTPServer.fStart(lambda oHTTPServer, oConnection, oRequest: oSelf.__foRequestHandler(oConnection, oRequest));
   
-  def __foRequestHandler(oSelf, oConnection, oRequest, oInterceptedForServerURL = None):
+  def __foRequestHandler(oSelf, oConnection, oRequest, oSecureConnectionInterceptedForServerURL = None):
     oSelf.fEnterFunctionOutput(oConnection = oConnection, oRequest = oRequest);
     try:
       ### Sanity checks ##########################################################
       oResponse = oSelf.__foResponseForConnectRequest(oConnection, oRequest);
       if oResponse:
-        assert not oInterceptedForServerURL, \
+        assert not oSecureConnectionInterceptedForServerURL, \
             "A client is not supposed to make a HTTP CONNECT request through a connection where it has previously sent one and which we're intercepting.";
         return oSelf.fxExitFunctionOutput(oResponse, "HTTP CONNECT");
-      oResponse = oSelf.__foResponseForInvalidMethodInRequest(oRequest)
-      if oResponse: return oSelf.fxExitFunctionOutput(oResponse, "Invalid method");
-      if oInterceptedForServerURL:
+      if oRequest.sMethod.upper() not in ["CONNECT", "GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS", "TRACE", "PATCH"]:
+        oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, "The request method was not valid.");
+        return oSelf.fxExitFunctionOutput(oResponse, "Invalid method");
+      if oSecureConnectionInterceptedForServerURL:
         # This request was made to a connection we are intercepting after the client send a HTTP CONNECT request.
         # The URL should be relative:
         if oRequest.sURL[:1] == "/":
-          oURL = cURL.foFromString(oInterceptedForServerURL.sBase + oRequest.sURL);
+          oURL = cURL.foFromString(oSecureConnectionInterceptedForServerURL.sBase + oRequest.sURL);
         else:
-          sReason = "The requested URL was not valid.",
-          oResponse = oSelf.__foResponseForInvalidURLInRequest(oRequest, sReason);
+          oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, "The requested URL was not valid.");
       else:
         # This request was made to the proxy; the URL should be absolute:
         try:
@@ -276,150 +290,62 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
             sReason = "This is a HTTP proxy, not a HTTP server.";
           else:
             sReason = "The requested URL was not valid.",
-          oResponse = oSelf.__foResponseForInvalidURLInRequest(oRequest, sReason);
+          oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, sReason);
       if oResponse: return oSelf.fxExitFunctionOutput(oResponse, "Invalid URL");
       oResponse = oSelf.__foResponseForInvalidProxyHeaderInRequest(oRequest)
       if oResponse: return oSelf.fxExitFunctionOutput(oResponse, "Invalid proxy header");
-      dHeader_sValue_by_sName = {};
-      if not oInterceptedForServerURL:
-        dHeader_sValue_by_sName["connection"] = "keep-alive";
-      for sName in oRequest.fasGetHeaderNames():
-        sLowerName = sName.lower();
-        if not oInterceptedForServerURL and sLowerName in ["connection", "keep-alive"]:
-          pass; # These are not passed on to the server unless we are intercepting the connection.
-        elif sLowerName == "accept-encoding":
-          # We will not allow the client to request a compression that we cannot decode so we will filter out
-          # anything we do not support:
-          sAcceptEncoding = ",".join([
-            sCompressionType
-            for sCompressionType in oRequest.fsGetHeaderValue(sName).split(",")
-            if sCompressionType.strip().lower() in oRequest.asSupportedCompressionTypes
-          ]);
-          # If the client accepts compression types we support let the server know they are accepted, otherwise we
-          # won't bother sending the header.
-          if sAcceptEncoding:
-            dHeader_sValue_by_sName[sName] = sAcceptEncoding;
+      oHTTPHeaders = oRequest.oHTTPHeaders.foClone();
+      # This client does not decide how we handle our connection to the server, so we will overwrite any "Connection"
+      # header copied from the request to the proxy with the value we want for the request to the server:
+      oHTTPHeaders.fbSet("Connection", "Keep-Alive");
+      # We will not allow the client to request a compression that we cannot decode so we will remove any
+      # "Accept-Encoding" value copied from the request to the proxy that we cannot decode:
+      sAcceptEncodingHeaderName, sAcceptEncodingHeaderValue = oHTTPHeaders.ftsGetNameCasingAndValue("Accept-Encoding");
+      if sAcceptEncodingHeaderName is not None:
+        sFilteredAcceptEncodingHeaderValue = ",".join([
+          sCompressionType
+          for sCompressionType in sAcceptEncodingHeaderValue.split(",")
+          if sCompressionType.strip().lower() in oRequest.asSupportedCompressionTypes
+        ]);
+        # If the client accepts compression types we support let the server know they are accepted, otherwise
+        # completely remove the header.
+        if sFilteredAcceptEncodingHeaderValue:
+          oHTTPHeaders.fbSet(sAcceptEncodingHeaderName, sFilteredAcceptEncodingHeaderValue);
         else:
-          # This header is passed on unmodified:
-          dHeader_sValue_by_sName[sName] = oRequest.fsGetHeaderValue(sName).strip();
+          oHTTPHeaders.fbDelete(sAcceptEncodingHeaderName);
+      # Remote HTTP Strict Transport Security header to allow the user to ignore certificate warnings.
+      # TODO: Find out if we want to make the caller specifically enable this behavior or leave it always-on.
+      if oHTTPHeaders.fbDelete("Strict-Transport-Security"):
+        oSelf.fStatusOutput("Filtered HSTS header.");
       try:
         oResponse = oSelf.oHTTPClient.foGetResponseForURL(
           oURL = oURL,
           sMethod = oRequest.sMethod,
-          dHeader_sValue_by_sName = dHeader_sValue_by_sName,
+          oHTTPHeaders = oHTTPHeaders,
           sBody = oRequest.sBody if not oRequest.bChunked else None,
           asBodyChunks = oRequest.asBodyChunks if oRequest.bChunked else None,
           nTransactionTimeoutInSeconds = oSelf.__nTransactionTimeoutInSeconds,
           bCheckHostName = oSelf.__bCheckHostName,
         );
       except oSelf.oHTTPClient.cConnectTimeoutException:
-        oResponse = cHTTPResponse(
-          sHTTPVersion = oRequest.sHTTPVersion,
-          uStatusCode = 502,
-          sReasonPhrase = "Bad gateway",
-          dHeader_sValue_by_sName = {
-            "Connection": "Close",
-            "Content-Type": "text/plain",
-          },
-          sBody = "The server did not respond before the request timed out.",
-        );
+        oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 502, "The server did not respond before the request timed out.");
       except oSelf.oHTTPClient.cConnectToUnknownAddressException:
-        oResponse = cHTTPResponse(
-          sHTTPVersion = oRequest.sHTTPVersion,
-          uStatusCode = 400,
-          sReasonPhrase = "Bad request",
-          dHeader_sValue_by_sName = {
-            "Connection": "Close",
-            "Content-Type": "text/plain",
-          },
-          sBody = "The server cannot be found.",
-        );
+        oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, "The server cannot be found.");
       except oSelf.oHTTPClient.cInvalidHTTPMessageException:
-        oResponse = cHTTPResponse(
-          sHTTPVersion = oRequest.sHTTPVersion,
-          uStatusCode = 502,
-          sReasonPhrase = "Bad gateway",
-          dHeader_sValue_by_sName = {
-            "Connection": "Close",
-            "Content-Type": "text/plain",
-          },
-          sBody = "The server send an invalid HTTP response.",
-        );
-        
-      # Remote HTTP Strict Transport Security header to allow the user to ignore certificate warnings.
-      if oResponse.fbHasHeaderValue("Strict-Transport-Security"):
-        oSelf.fStatusOutput("Filtered HSTS header.");
-        oResponse.fRemoveHeader("Strict-Transport-Security");
+        oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 502, "The server send an invalid HTTP response.");
       return oSelf.fxExitFunctionOutput(oResponse);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
     
-  def __foResponseForInvalidURLInRequest(oSelf, oRequest, sReason):
-    oSelf.fEnterFunctionOutput(oRequest = oRequest, oURL = oURL);
-    try:
-      # URL is invalid: return error specific to the reason why it is invalid.
-      oResponse = cHTTPResponse(
-        sHTTPVersion = oRequest.sHTTPVersion,
-        uStatusCode = 400,
-        sReasonPhrase = "Bad request",
-        dHeader_sValue_by_sName = {
-          "Connection": "Close",
-          "Content-Type": "text/plain",
-        },
-        sBody = sReason,
-      );
-      return oSelf.fxExitFunctionOutput(oResponse);
-    except Exception as oException:
-      oSelf.fxRaiseExceptionOutput(oException);
-      raise;
-  
-  def __foResponseForInvalidMethodInRequest(oSelf, oRequest):
-    oSelf.fEnterFunctionOutput(oRequest = oRequest);
-    try:
-      if oRequest.sMethod.upper() not in ["CONNECT", "GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS", "TRACE", "PATCH"]:
-        oResponse = cHTTPResponse(
-          sHTTPVersion = oRequest.sHTTPVersion,
-          uStatusCode = 400,
-          sReasonPhrase = "Bad request",
-          dHeader_sValue_by_sName = {
-            "Connection": "Close",
-            "Content-Type": "text/plain",
-          },
-          sBody = "The request method was not valid.",
-        );
-        return oSelf.fxExitFunctionOutput(oResponse);
-      return oSelf.fxExitFunctionOutput(None, "Request has valid method");
-    except Exception as oException:
-      oSelf.fxRaiseExceptionOutput(oException);
-      raise;
-  
   def __foResponseForInvalidProxyHeaderInRequest(oSelf, oRequest):
     oSelf.fEnterFunctionOutput(oRequest = oRequest);
     try:
-      if oRequest.fbHasHeaderValue("Proxy-Authenticate"):
-        oResponse = cHTTPResponse(
-          sHTTPVersion = oRequest.sHTTPVersion,
-          uStatusCode = 400,
-          sReasonPhrase = "Bad request",
-          dHeader_sValue_by_sName = {
-            "Connection": "Close",
-            "Content-Type": "text/plain",
-          },
-          sBody = "This proxy does not require authentication.",
-        );
+      if oRequest.oHTTPHeaders.fbHasValue("Proxy-Authenticate"):
+        oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, "This proxy does not require authentication.");
         return oSelf.fxExitFunctionOutput(oResponse);
-      if oRequest.fbHasHeaderValue("Proxy-Authorization"):
-        oResponse = cHTTPResponse(
-          sHTTPVersion = oRequest.sHTTPVersion,
-          uStatusCode = 400,
-          sReasonPhrase = "Bad request",
-          dHeader_sValue_by_sName = {
-            "Connection": "Close",
-            "Content-Type": "text/plain",
-          },
-          sBody = "This proxy does not require authorization.",
-        );
+      if oRequest.oHTTPHeaders.fbHasValue("Proxy-Authorization"):
+        oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, "This proxy does not require authorization.");
         return oSelf.fxExitFunctionOutput(oResponse);
       return oSelf.fxExitFunctionOutput(None, "Request does not have an invalid proxy header");
     except Exception as oException:
@@ -431,35 +357,17 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
     try:
       if oRequest.sMethod.upper() == "CONNECT":
         # Check the sanity of the request.
-        sHostHeader = oRequest.fsGetHeaderValue("Host");
+        sHostHeader = oRequest.oHTTPHeaders.fsGet("Host");
         sLowerRequestURI = oRequest.sURL.lower();
         if not sHostHeader or sHostHeader.strip().lower() != sLowerRequestURI:
-          oResponse = cHTTPResponse(
-            sHTTPVersion = oRequest.sHTTPVersion,
-            uStatusCode = 400,
-            sReasonPhrase = "Bad request",
-            dHeader_sValue_by_sName = {
-              "Connection": "Close",
-              "Content-Type": "text/plain",
-            },
-            sBody = "The requested URL and host header did not match.",
-          );
+          oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, "The requested URL and host header did not match.");
           return oSelf.fxExitFunctionOutput(oResponse, "URL %s and host header %s mismatched" % (repr(oRequest.sURL), repr(sHostHeader)));
         # Parse the request URI to construct a URL for the server:
         try:
           sServerHostName, sServerPort = sLowerRequestURI.split(":");
           uServerPort = long(sServerPort);
         except:
-          oResponse = cHTTPResponse(
-            sHTTPVersion = oRequest.sHTTPVersion,
-            uStatusCode = 400,
-            sReasonPhrase = "Bad request",
-            dHeader_sValue_by_sName = {
-              "Connection": "Close",
-              "Content-Type": "text/plain",
-            },
-            sBody = "The requested URL was not valid.",
-          );
+          oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, "The requested URL was not valid.");
           return oSelf.fxExitFunctionOutput(oResponse, "Invalid URL %s" % repr(oRequest.sURL));
         oServerURL = cURL.foFromString("https://%s:%d" % (sServerHostName, uServerPort));
         if oSelf.__oInterceptSSLConnectionsCertificateAuthority:
@@ -483,16 +391,7 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
             bNoSSLNegotiation = True,
           );
           if not oConnectionToServer:
-            oResponse = cHTTPResponse(
-              sHTTPVersion = oRequest.sHTTPVersion,
-              uStatusCode = 502,
-              sReasonPhrase = "Bad gateway",
-              dHeader_sValue_by_sName = {
-                "Connection": "Close",
-                "Content-type": "text/plain",
-              },
-              sBody = "Could not connect to remote server.",
-            );
+            oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 502, "Could not connect to remote server.");
             return oSelf.fxExitFunctionOutput(oResponse, "Could not connect to %s" % oServerURL);
           # Create a thread that will pipe data back and forth between the client and server
           fConnectionHandler = oSelf.__fPipeConnection;
@@ -517,10 +416,10 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
           sHTTPVersion = oRequest.sHTTPVersion,
           uStatusCode = 200,
           sReasonPhrase = "Ok",
-          dHeader_sValue_by_sName = {
+          oHTTPHeaders = cHTTPHeaders({
             "Connection": "Keep-Alive",
             "Content-type": "text/plain",
-          },
+          }),
           sBody = "Connected to remote server.",
         );
         oResponse.fSetMetaData("bStopHandlingHTTPMessages", True);
@@ -567,7 +466,7 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
               oSelf.fStatusOutput("Reading request from %s timed out; terminating connection..." % oConnectionFromClient.fsToString());
               oConnectionFromClient.fTerminate();
               break;
-            oResponse = oSelf.__foRequestHandler(oConnectionFromClient, oRequest, oInterceptedForServerURL = oServerURL);
+            oResponse = oSelf.__foRequestHandler(oConnectionFromClient, oRequest, oSecureConnectionInterceptedForServerURL = oServerURL);
             # Send the response to the client
             oSelf.fStatusOutput("Sending response (%s) to %s..." % (oResponse.fsToString(), oConnectionFromClient.fsToString()));
             try:

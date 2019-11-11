@@ -1,8 +1,9 @@
-import json;
+import json, re;
 from .cBufferedSocket import cBufferedSocket;
-from .cProtocolException import cProtocolException;
+from .cHTTPHeaders import cHTTPHeaders;
 from .cHTTPRequest import cHTTPRequest;
 from .cHTTPResponse import cHTTPResponse;
+from .cProtocolException import cProtocolException;
 from .iHTTPMessage import iHTTPMessage;
 from mMultiThreading import cWithCallbacks;
 
@@ -84,9 +85,9 @@ class cHTTPConnection(cBufferedSocket):
       # Determine if connection should be closed for writing after sending the message
       bCloseConnection = oMessage.fxGetMetaData("bCloseConnection");
       if bCloseConnection is None:
-        sConnectionHeaderValue = oMessage.fsGetHeaderValue("Connection");
-        if sConnectionHeaderValue:
-          bCloseConnection = sConnectionHeaderValue.strip().lower() == "close";
+        bHasConnectionHeader = oMessage.oHTTPHeaders.fbHasValue("Connection");
+        if bHasConnectionHeader:
+          bCloseConnection = oMessage.oHTTPHeaders.fbHasValue("Connection", "Close");
         else:
           bCloseConnection = oMessage.sHTTPVersion.lower() == "HTTP/1.0";
         oMessage.fSetMetaData("bCloseConnection", bCloseConnection);
@@ -237,63 +238,48 @@ class cHTTPConnection(cBufferedSocket):
         oSelf.fClose();
         raise;
       oSelf.fStatusOutput("Reading headers...");
-      dHeader_sValue_by_sLowerName = oSelf.__fdsReadHeaders(uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders);
+      oHTTPHeaders = oSelf.__foReadHeaders(uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders);
       # Find out what headers are present
-      uContentLengthHeaderValue = None;
-      bTransferEncodingChunkedHeaderPresent = None;
-      bConnectionCloseHeaderPresent = None;
-      for (sLowerName, sValue) in dHeader_sValue_by_sLowerName.items():
-        if sLowerName == "content-length":
-          if bTransferEncodingChunkedHeaderPresent:
-            oSelf.fClose();
-            raise iHTTPMessage.cInvalidHTTPMessageException(
-              "Both a \"content-length\" and \"transfer-encoding: chunked\" header were received, which is invalid.",
-            );
-          try:
-            uContentLengthHeaderValue = long(sValue);
-            if uContentLengthHeaderValue < 0:
-              raise ValueError();
-          except ValueError:
-            oSelf.fClose();
-            raise iHTTPMessage.cInvalidHTTPMessageException(
-              "The content-length header value was invalid.",
-              sValue,
-            );
-          if uContentLengthHeaderValue > uMaxBodySize:
-            oSelf.fClose();
-            raise iHTTPMessage.cInvalidHTTPMessageException(
-              "The content-length header value was too large (>%d bytes)." % uMaxBodySize,
-              uContentLengthHeaderValue,
-            );
-        elif sLowerName == "transfer-encoding" and sValue.lower() == "chunked":
-          bTransferEncodingChunkedHeaderPresent = True;
-        elif sLowerName == "connection" and sValue.lower() == "close":
-          bConnectionCloseHeaderPresent = True;
-      
+      sContentLengthHeaderValue = oHTTPHeaders.fsGet("Content-Length");
+      bTransferEncodingChunkedHeaderPresent = oHTTPHeaders.fbHasValue("Transfer-Encoding", "Chunked");
+      bConnectionCloseHeaderPresent = oHTTPHeaders.fbHasValue("Connection", "Close");
       sBody = None;
       asBodyChunks = None;
       
+      # Parse Content-Length header value if any
+      if sContentLengthHeaderValue is not None:
+        try:
+          uContentLengthHeaderValue = long(sContentLengthHeaderValue);
+          if uContentLengthHeaderValue < 0:
+            raise ValueError();
+        except ValueError:
+          oSelf.fClose();
+          raise iHTTPMessage.cInvalidHTTPMessageException(
+            "The Content-Length header value was invalid.",
+            "%s: %s" % (oHTTPHeaders.fsGetNameCasing("Content-Length"), sContentLengthHeaderValue),
+          );
+        if uContentLengthHeaderValue > uMaxBodySize:
+          oSelf.fClose();
+          raise iHTTPMessage.cInvalidHTTPMessageException(
+            "The Content-Length header value was too large (>%d bytes)." % uMaxBodySize,
+            "%s: %s" % (oHTTPHeaders.fsGetNameCasing("Content-Length"), sContentLengthHeaderValue),
+          );
+      else:
+        uContentLengthHeaderValue = None;
+      # Read body
       if bTransferEncodingChunkedHeaderPresent:
-        if uContentLengthHeaderValue is not None and uContentLengthHeaderValue < uMaxBodySize:
-          oSelf.fStatusOutput("Reading chunked response body WITH Content-Length = %d..." % uContentLengthHeaderValue);
-          uMaxBodySize = uContentLengthHeaderValue;
-        else:
-          oSelf.fStatusOutput("Reading chunked response body...");
-        asBodyChunks = oSelf.__fasReadBodyChunks(uMaxBodySize, uMaxChunkSize, uMaxNumberOfChunks);
-        # More "headers" may follow. I am not sure how to handle multiple
-        # Note: we should really check the value here and handle duplicates;
-        # we are simply overwriting the values, so we may have just read a
-        # chunked-encoded body and now remove the header that
-        for (sLowerName, sValue) in oSelf.__fdsReadHeaders(uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders):
-          if sLowerName in ("transfer-encoding", "content-length"):
+        # Having both Content-Length and Transfer-Encoding: chunked headers is really weird but AFAICT not illegal.
+        asBodyChunks = oSelf.__fasReadBodyChunks(uMaxBodySize, uMaxChunkSize, uMaxNumberOfChunks, uContentLengthHeaderValue);
+        # More "headers" may follow.
+        oAdditionalHTTPHeaders = oSelf.__foReadHeaders(uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders);
+        for sIllegalName in ["Transfer-Encoding", "Content-Length"]:
+          sIllegalValue = oAdditionalHTTPHeaders.fsGet(sIllegalName);
+          if sIllegalValue is not None:
             raise cBufferedSocket.cInvalidHTTPMessageException(
-              "The message was not valid because it contained a %s header after the chunked body." % sLowerName,
-              "%s: %s" % (repr(sLower), repr(sValue)),
+              "The message was not valid because it contained a %s header after the chunked body." % sIllegalName,
+              "%s: %s" % (repr(oAdditionalHTTPHeaders.fsGetNameCasing(sIllegalName)), repr(sIllegalValue)),
             );
-          if sLowername in dHeader_sValue_by_sLowerName:
-            dHeader_sValue_by_sLowerName[sLowerName] += " " + sValue;
-          else:
-            dHeader_sValue_by_sLowerName[sLowerName] = sValue;
+        oHTTPHeaders.fUpdate(oAdditionalHTTPHeaders, bAppend = True);
       elif uContentLengthHeaderValue is not None:
         oSelf.fStatusOutput("Reading %d bytes response body..." % uContentLengthHeaderValue);
         try:
@@ -335,7 +321,8 @@ class cHTTPConnection(cBufferedSocket):
       if bConnectionCloseHeaderPresent:
         oSelf.fCloseForReading();
       oMessage = cHTTPMessage(
-        dHeader_sValue_by_sName = dHeader_sValue_by_sLowerName,
+        # (note: status line arguments are provided at the end)
+        oHTTPHeaders = oHTTPHeaders,
         sBody = sBody,
         asBodyChunks = asBodyChunks,
         dxMetaData = {
@@ -354,13 +341,13 @@ class cHTTPConnection(cBufferedSocket):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
 
-  def __fdsReadHeaders(oSelf, uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders):
+  def __foReadHeaders(oSelf, uMaxHeaderNameSize, uMaxHeaderValueSize, uMaxNumberOfHeaders):
     oSelf.fEnterFunctionOutput(uMaxHeaderNameSize = uMaxHeaderNameSize, uMaxHeaderValueSize = uMaxHeaderValueSize, uMaxNumberOfHeaders = uMaxNumberOfHeaders);
     # Given the max size of a name and value and allowing for ": " between them, we can calculate the max size of a header line.
     uMaxHeaderLineSize = uMaxHeaderNameSize + 2 + uMaxHeaderValueSize;
     try:
-      dHeader_sValue_by_sLowerName = {};
-      sLastHeaderLowerName = None;
+      oHTTPHeaders = cHTTPHeaders();
+      sLastHeaderName = None;
       uMaxHeaderLineSize = uMaxHeaderNameSize  + uMaxHeaderValueSize;
       while 1:
         oSelf.fStatusOutput("Reading header line...");
@@ -385,13 +372,14 @@ class cHTTPConnection(cBufferedSocket):
           oSelf.fStatusOutput("Encountered end of headers.");
           break; # Empty line == end of headers;
         if sLine[0] in " \t": # header continuation
-          if sLastHeaderLowerName is None:
+          if sLastHeaderName is None:
             oSelf.fClose();
             raise iHTTPMessage.cInvalidHTTPMessageException(
               "A header line continuation was sent on the first header line, which is not valid.",
               sLine,
             );
-          dHeader_sValue_by_sLowerName[sLastHeaderLowerName] += sLine.rstrip();
+          sHeaderName = sLastHeaderName;
+          sHeaderValue = sLine; # leading (and trailing) spaces will be stripped later.
         else: # header
           asHeaderNameAndValue = sLine.split(":", 1);
           if len(asHeaderNameAndValue) != 2:
@@ -401,87 +389,89 @@ class cHTTPConnection(cBufferedSocket):
               sLine,
             );
           sHeaderName, sHeaderValue = asHeaderNameAndValue;
-          sHeaderLowerName = sHeaderName.lower();
-          sHeaderValue = sHeaderValue.strip();
-          if sHeaderLowerName == sLastHeaderLowerName: # multiple values with the same name are concatinated
-            dHeader_sValue_by_sLowerName[sHeaderLowerName] += " " + sHeaderValue;
-          else:
-            dHeader_sValue_by_sLowerName[sHeaderLowerName] = sHeaderValue;
-          sLastHeaderLowerName = sHeaderLowerName;
-      return oSelf.fxExitFunctionOutput(dHeader_sValue_by_sLowerName);
+          sLastHeaderName = sHeaderName;
+        # oHTTPHeaders takes care of headers with the same name but different casing and strips leading/trailing spaces
+        # from names and values automatically.
+        oHTTPHeaders.fbSet(sHeaderName, sHeaderValue, bAppend = True); # multiple values with the same name are concatinated
+      return oSelf.fxExitFunctionOutput(oHTTPHeaders);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def __fasReadBodyChunks(oSelf, uMaxBodySize, uMaxChunkSize, uMaxNumberOfChunks):
-    oSelf.fEnterFunctionOutput(uMaxBodySize = uMaxBodySize, uMaxChunkSize = uMaxChunkSize, uMaxNumberOfChunks = uMaxNumberOfChunks);
+  def __fasReadBodyChunks(oSelf, uMaxBodySize, uMaxChunkSize, uMaxNumberOfChunks, uContentLengthHeaderValue):
+    oSelf.fEnterFunctionOutput(uMaxBodySize = uMaxBodySize, uMaxChunkSize = uMaxChunkSize, uMaxNumberOfChunks = uMaxNumberOfChunks, uContentLengthHeaderValue = uContentLengthHeaderValue);
     try:
+      if uContentLengthHeaderValue is not None:
+        oSelf.fStatusOutput("Reading chunked response body WITH Content-Length = %d..." % uContentLengthHeaderValue);
+      else:
+        oSelf.fStatusOutput("Reading chunked response body...");
       asBodyChunks = [];
+      uContentLengthRemaining = uContentLengthHeaderValue;
       # The chunk size can be zero padded More than this many chars in the 
       uTotalChunksSize = 0;
       while 1:
         oSelf.fStatusOutput("Reading response body chunk header line...");
         # Read size in the chunk header
+        uMaxChunkHeaderLineSize = guMaxChunkSizeCharacters + 2;
+        if uContentLengthRemaining is not None:
+          if uContentLengthRemaining < 5: # minimum is "0\r\n\r\n"
+            oSelf.fClose();
+            raise iHTTPMessage.cInvalidHTTPMessageException(
+              "The body chunks were larger than the Content-Length (>%d bytes)." % uContentLengthHeaderValue,
+              sData,
+            );
+          if uContentLengthRemaining < uMaxChunkHeaderLineSize:
+            uMaxChunkHeaderLineSize = uContentLengthRemaining;
         try:
-          sChunkHeader = oSelf.fsReadUntil("\r\n", guMaxChunkSizeCharacters + 2);
+          sChunkHeader = oSelf.fsReadUntil("\r\n", uMaxChunkHeaderLineSize);
         except cBufferedSocket.cTooMuchDataException as oException:
+          oSelf.fClose();
           raise iHTTPMessage.cInvalidHTTPMessageException(
-            "A body chunk header line was too large (>%d bytes)." % guMaxChunkSizeCharacters,
+            "A body chunk header line was too large (>%d bytes)." % guMaxChunkSizeCharacters if uContentLengthHeaderValue is None
+                else "The body chunks were larger than the Content-Length (>%d bytes)." % uContentLengthHeaderValue,
             str(oException),
           );
         except cBufferedSocket.cTransactionTimeoutException as oException:
+          oSelf.fClose();
           oException.sMessage += " (attempt to read body chunk header line)";
           raise oException;
         except cBufferedSocket.cConnectionClosedException as oException:
-          sBufferedData = oSelf.fsReadBufferedData()
+          sBufferedData = oSelf.fsReadBufferedData();
           raise iHTTPMessage.cInvalidHTTPMessageException(
-            "Connection closed by remote while reading body chunk header.",
+            "Connection closed while reading body chunk header.",
             "chunk header read = %s" % repr(sBufferedData),
           );
-          
-        if sChunkHeader is None:
-          sData = oSelf.fsReadBufferedData();
-          if len(sData) >= guMaxChunkSizeCharacters:
-            oSelf.fClose();
-            raise iHTTPMessage.cInvalidHTTPMessageException(
-              "A body chunk header line was too large (>%d bytes)." % guMaxChunkSizeCharacters,
-              sData,
-            );
-          elif not oSelf.bOpenForReading:
-            oSelf.fClose();
-            raise iHTTPMessage.cInvalidHTTPMessageException(
-              "A body chunk header line was not received because the remote closed the connection.",
-              sData,
-            );
-          else:
-            oSelf.fClose();
-            raise cBufferedSocket.cTransactionTimeoutException(
-              "A body chunk header line was not received because the transaction timed out.",
-              sData,
-            );
+        
+        if uContentLengthRemaining is not None:
+          uContentLengthRemaining -= len(sChunkHeader);
         if ";" in sChunkHeader:
           oSelf.fClose();
           raise iHTTPMessage.cInvalidHTTPMessageException(
             "A body chunk header line contained an extension, which is not supported.",
             sChunkHeader,
           );
-        sChunkSize = sChunkHeader[:-2];
-        for sByte in sChunkSize:
-          if sByte.lower() not in "0123456789abcdef":
-            oSelf.fClose();
-            raise iHTTPMessage.cInvalidHTTPMessageException(
-              "A body chunk header line contained an invalid character in the chunk size.",
-              sChunkHeader,
-            );
+        sChunkSize = sChunkHeader.strip();
+        if not re.match("^[0-9A-F]+$", sChunkSize):
+          oSelf.fClose();
+          raise iHTTPMessage.cInvalidHTTPMessageException(
+            "A body chunk header line contained an invalid character in the chunk size.",
+            sChunkHeader,
+          );
         uChunkSize = long(sChunkSize, 16);
+        if uChunkSize == 0:
+          break;
+        if uContentLengthRemaining is not None and uChunkSize + 7 > uContentLengthRemaining: # minimum after this chunk is "\r\n0\r\n\r\n"
+          oSelf.fClose();
+          raise iHTTPMessage.cInvalidHTTPMessageException(
+            "The body chunks were larger than the Content-Length (>%d bytes)." % uContentLengthHeaderValue,
+            str(oException),
+          );
         if uMaxChunkSize is not None and uChunkSize > uMaxChunkSize:
           oSelf.fClose();
           raise iHTTPMessage.cInvalidHTTPMessageException(
             "A body chunk was too large (>%d bytes)." % uMaxChunkSize,
             uChunkSize,
           );
-        if uChunkSize == 0:
-          break;
         # Check chunk size and number of chunks
         if uTotalChunksSize + uChunkSize > uMaxBodySize:
           oSelf.fClose();
@@ -506,6 +496,8 @@ class cHTTPConnection(cBufferedSocket):
             "Connection closed while reading body chunk header.",
             "chunk header read = %s" % repr(sBufferedData),
           );
+        if uContentLengthRemaining is not None:
+          uContentLengthRemaining -= uChunkSize + 2;
         if sChunkAndCRLF[-2:] != "\r\n":
           oSelf.fClose();
           raise iHTTPMessage.cInvalidHTTPMessageException(
@@ -513,6 +505,13 @@ class cHTTPConnection(cBufferedSocket):
             sChunkAndCRLF[-2:],
           );
         asBodyChunks.append(sChunkAndCRLF[:-2]);
+      if uContentLengthRemaining: # neither None or 0
+        raise iHTTPMessage.cInvalidHTTPMessageException(
+          "The body chunks were smaller than the Content-Length.",
+          # (body chunks size, content length)
+          (uContentLengthHeaderValue - uContentLengthRemaining, uContentLengthHeaderValue),
+        );
+      
       return oSelf.fxExitFunctionOutput(asBodyChunks);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);

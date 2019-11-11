@@ -4,6 +4,7 @@ try:
 except:
   cBrotli = None;
 from mDebugOutput import cWithDebugOutput;
+from .cHTTPHeaders import cHTTPHeaders;
 from .cProtocolException import cProtocolException;
 from .fsURLEncodedStringFromNameValuePairs import fsURLEncodedStringFromNameValuePairs;
 from .fdsURLDecodedNameValuePairsFromString import fdsURLDecodedNameValuePairsFromString;
@@ -21,25 +22,25 @@ def fsASCII(sData, sDataTypeDescription):
 
 class iHTTPMessage(cWithDebugOutput):
   asSupportedCompressionTypes = ["deflate", "gzip", "x-gzip", "zlib"] + (["br"] if cBrotli else []);
-  ddDefaultHeader_sValue_by_sLowerName_by_sHTTPVersion = {
+  ddDefaultHeader_sValue_by_sName_by_sHTTPVersion = {
     "HTTP/1.0": {
-      "connection": "Close",
-      "cache-control": "No-Cache, Must-Revalidate",
-      "expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
-      "pragma": "No-Cache",
+      "Connection": "Close",
+      "Cache-Control": "No-Cache, Must-Revalidate",
+      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
+      "Oragma": "No-Cache",
     },
     "HTTP/1.1": {
-      "connection": "Keep-Alive",
-      "cache-control": "No-Cache, Must-Revalidate",
-      "expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
-      "pragma": "No-Cache",
+      "Connection": "Keep-Alive",
+      "Cache-Control": "No-Cache, Must-Revalidate",
+      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
+      "Pragma": "No-Cache",
     },
   };
   
   class cInvalidHTTPMessageException(cProtocolException):
     pass;
   
-  def __init__(oSelf, sHTTPVersion = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None, dxMetaData = None):
+  def __init__(oSelf, sHTTPVersion = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None, dxMetaData = None):
     assert sBody is None or sData is None, \
           "Cannot provide both sBody (%s) and sData (%s)!" % (repr(sBody), repr(sData));
     assert sBody is None or asBodyChunks is None, \
@@ -47,16 +48,10 @@ class iHTTPMessage(cWithDebugOutput):
     assert sData is None or asBodyChunks is None, \
           "Cannot provide both sData (%s) and asBodyChunks (%s)!" % (repr(sData), repr(asBodyChunks));
     oSelf.__sHTTPVersion = sHTTPVersion if sHTTPVersion else "HTTP/1.1";
-    dDefaultHeader_sValue_by_sLowerName = oSelf.ddDefaultHeader_sValue_by_sLowerName_by_sHTTPVersion.get(oSelf.__sHTTPVersion);
-    assert dDefaultHeader_sValue_by_sLowerName, \
+    dDefaultHeader_sValue_by_sName = oSelf.ddDefaultHeader_sValue_by_sName_by_sHTTPVersion.get(oSelf.__sHTTPVersion);
+    assert dDefaultHeader_sValue_by_sName, \
         "Invalid HTTP version %s" % sHTTPVersion;
-    oSelf.__dHeader_sValue_by_sLowerName = {};
-    for (sName, sValue) in (
-        dHeader_sValue_by_sName if dHeader_sValue_by_sName is not None
-        else dDefaultHeader_sValue_by_sLowerName
-    ).items():
-      sLowerName = sName.lower();
-      oSelf.__dHeader_sValue_by_sLowerName[sLowerName] = sValue;
+    oSelf.oHTTPHeaders = oHTTPHeaders or cHTTPHeaders(dDefaultHeader_sValue_by_sName);
     oSelf.__sBody = None;
     oSelf.__asBodyChunks = None;
     oSelf.__dxMetaData = dxMetaData or {};
@@ -87,45 +82,20 @@ class iHTTPMessage(cWithDebugOutput):
   def sHTTPVersion(oSelf, sHTTPVersion):
     oSelf.__sHTTPVersion = sHTTPVersion;
   
-  def fasGetHeaderNames(oSelf):
-    return oSelf.__dHeader_sValue_by_sLowerName.keys();
-  def fbHasHeaderValue(oSelf, sName, sValue = None):
-    sLowerName = sName.lower();
-    if sLowerName in oSelf.__dHeader_sValue_by_sLowerName:
-      return (
-        True if sValue is None
-        else sValue.lower() == oSelf.__dHeader_sValue_by_sLowerName[sLowerName].lower()
-      );
-    return False;
-  def fsGetHeaderValue(oSelf, sName):
-    sLowerName = sName.lower();
-    return oSelf.__dHeader_sValue_by_sLowerName.get(sLowerName);
-  def fSetHeaderValue(oSelf, sName, sValue):
-    sLowerName = sName.lower();
-    oSelf.__dHeader_sValue_by_sLowerName[sLowerName] = sValue;
-  def fRemoveHeader(oSelf, sName):
-    oSelf.fbRemoveHeader(sName);
-  def fbRemoveHeader(oSelf, sName):
-    sLowerName = sName.lower();
-    if sLowerName in oSelf.__dHeader_sValue_by_sLowerName:
-      del oSelf.__dHeader_sValue_by_sLowerName[sLowerName];
-      return True;
-    return False;
-  
   @property
   def sMediaType(oSelf):
-    sContextTypeHeaderValue = oSelf.fsGetHeaderValue("Content-Type");
+    sContextTypeHeaderValue = oSelf.oHTTPHeaders.fsGet("Content-Type");
     return sContextTypeHeaderValue and sContextTypeHeaderValue.split(";")[0].strip();
   @sMediaType.setter
   def sMediaType(oSelf, sValue):
-    sContextTypeHeaderValue = oSelf.fsGetHeaderValue("Content-Type");
+    sContextTypeHeaderValue = oSelf.oHTTPHeaders.fsGet("Content-Type");
     sAdditionalContentTypeValues = sContextTypeHeaderValue.split(";")[1:].join(";") if sContextTypeHeaderValue else "";
     sContentType = sValue + ("; %s" % sAdditionalContentTypeValues if sAdditionalContentTypeValues else "");
-    oSelf.fSetHeaderValue("Content-Type", sContentType);
+    oSelf.oHTTPHeaders.fbSet("Content-Type", sContentType);
   
   @property
   def sCharset(oSelf):
-    sContextTypeHeaderValue = oSelf.fsGetHeaderValue("Content-Type");
+    sContextTypeHeaderValue = oSelf.oHTTPHeaders.fsGet("Content-Type");
     sCharSet = None;
     if sContextTypeHeaderValue:
       for sNameValuePair in sContextTypeHeaderValue.split(";")[1:]:
@@ -139,11 +109,11 @@ class iHTTPMessage(cWithDebugOutput):
   
   @property
   def bChunked(oSelf):
-    return oSelf.fbHasHeaderValue("transfer-encoding", "chunked");
+    return oSelf.oHTTPHeaders.fbHasValue("transfer-encoding", "chunked");
 
   @property
   def bCloseConnection(oSelf):
-    return oSelf.fbHasHeaderValue("connection", "close");
+    return oSelf.oHTTPHeaders.fbHasValue("connection", "close");
   
   @property
   def bCompressed(oSelf):
@@ -154,7 +124,7 @@ class iHTTPMessage(cWithDebugOutput):
   
   @property
   def asCompressionTypes(oself):
-    sContentEncoding = oSelf.fsGetHeaderValue("Content-Encoding");
+    sContentEncoding = oSelf.oHTTPHeaders.fsGet("Content-Encoding");
     return [s.strip().lower() for s in sContentEncoding.split(",")] if sContentEncoding else [];
   
   @property
@@ -163,7 +133,7 @@ class iHTTPMessage(cWithDebugOutput):
     sData = oSelf.__sBody if not oSelf.bChunked else "".join(oSelf.__asBodyChunks);
     if sData is None:
       return None;
-    sContentEncoding = oSelf.fsGetHeaderValue("Content-Encoding");
+    sContentEncoding = oSelf.oHTTPHeaders.fsGet("Content-Encoding");
     if sContentEncoding:
       for sEncodingType in reversed([s.strip().lower() for s in sContentEncoding.split(",")]):
         if cBrotli and sEncodingType == "br":
@@ -191,7 +161,7 @@ class iHTTPMessage(cWithDebugOutput):
       # Convert unicode to bytes using charset defined in Content-Type header.
       sData = str(sData, sCharset);
     # Sets the (optionally) compressed body of the message.
-    sContentEncoding = oSelf.fsGetHeaderValue("Content-Encoding");
+    sContentEncoding = oSelf.oHTTPHeaders.fsGet("Content-Encoding");
     if sContentEncoding:
       for sEncodingType in [s.strip().lower() for s in sContentEncoding.split(",")]:
         if cBrotli and sEncodingType == "br":
@@ -223,14 +193,14 @@ class iHTTPMessage(cWithDebugOutput):
     ]) + "0\r\n\r\n";
   
   def fSetBody(oSelf, sBody, bCloseConnectionInsteadOfUsingContentLength = False):
-    oSelf.fRemoveHeader("Transfer-Encoding");
+    oSelf.oHTTPHeaders.fbDelete("Transfer-Encoding");
     if oSelf.__sHTTPVersion.upper() != "HTTP/1.1":
       bCloseConnectionInsteadOfUsingContentLength = True;
     if bCloseConnectionInsteadOfUsingContentLength:
-      oSelf.fSetHeaderValue("Connection", "close");
-      oSelf.fRemoveHeader("Content-Length");
+      oSelf.oHTTPHeaders.fbSet("Connection", "Close");
+      oSelf.oHTTPHeaders.fbDelete("Content-Length");
     else:
-      oSelf.fSetHeaderValue("Content-Length", str(len(sBody)));
+      oSelf.oHTTPHeaders.fbSet("Content-Length", str(len(sBody)));
     oSelf.__sBody = fsASCII(sBody, "Body");
     oSelf.__asBodyChunks = None;
 
@@ -243,8 +213,8 @@ class iHTTPMessage(cWithDebugOutput):
     for sBodyChunk in asBodyChunks:
       assert sBodyChunk, \
           "Cannot add empty body chunks";
-    oSelf.fRemoveHeader("Content-Length");
-    oSelf.fSetHeaderValue("Transfer-Encoding", "chunked");
+    oSelf.oHTTPHeaders.fbDelete("Content-Length");
+    oSelf.oHTTPHeaders.fbSet("Transfer-Encoding", "Chunked");
     oSelf.__sBody = None;
     oSelf.__asBodyChunks = asBodyChunks[:];
     
@@ -254,16 +224,16 @@ class iHTTPMessage(cWithDebugOutput):
     assert oSelf.__sBody is None, \
         "Cannot add a chunk if content is set";
     if not oSelf.bChunked:
-      oSelf.fRemoveHeader("Content-Length");
-      oSelf.fSetHeaderValue("Transfer-Encoding", "chunked");
+      oSelf.oHTTPHeaders.fbDelete("Content-Length");
+      oSelf.oHTTPHeaders.fbSet("Transfer-Encoding", "Chunked");
       oSelf.__asBodyChunks = [sBodyChunk];
     else:
       oSelf.__asBodyChunks.append(sBodyChunk);
   
   def fRemoveBody(oSelf):
-    oSelf.fRemoveHeader("Content-Encoding");
-    oSelf.fRemoveHeader("Content-Length");
-    oSelf.fRemoveHeader("Transfer-Encoding", "chunked");
+    oSelf.oHTTPHeaders.fbDelete("Content-Encoding");
+    oSelf.oHTTPHeaders.fbDelete("Content-Length");
+    oSelf.oHTTPHeaders.fbDelete("Transfer-Encoding", "Chunked");
     oSelf.__sBody = None;
     oSelf.__asBodyChunks = None;
   
@@ -271,8 +241,8 @@ class iHTTPMessage(cWithDebugOutput):
   @property
   def dForm_sValue_by_sName(oSelf):
     # convert the decoded and decompressed body to form name-value pairs.
-    assert oSelf.sMediaType == "application/x-www-form-urlencoded", \
-        "Cannot get form data for Content-Type %s" % oSelf.fsGetHeaderValue("Content-Type");
+    assert oSelf.sMediaType.lower() == "application/x-www-form-urlencoded", \
+        "Cannot get form data for Content-Type %s" % oSelf.oHTTPHeaders.fsGet("Content-Type");
     return fdsURLDecodedNameValuePairsFromString(oSelf.sData);
   
   def fsGetFormValue(oSelf, sName):
@@ -286,17 +256,17 @@ class iHTTPMessage(cWithDebugOutput):
   def fSetFormValue(oSelf, sName, sValue):
     # convert the decoded and decompressed body to form name-value pairs, set the given name to the given value 
     # and update the optionally compressed body to match.
-    sLowerName = sName.lower();
+    sLowerStrippedName = sName.strip().lower();
     dForm_sValue_by_sName = oSelf.dForm_sValue_by_sName;
     for sOtherName in dForm_sValue_by_sName.keys():
-      if sLowerName == sOtherName.lower():
+      if sLowerStrippedName == sOtherName.lower():
         del dForm_sValue_by_sName[sOtherName];
     dForm_sValue_by_sName[sName] = sValue;
     oSelf.sData = fsURLEncodedStringFromNameValuePairs(dForm_sValue_by_sName);
   
   # Authorization
   def ftsGetBasicAuthorization(oSelf):
-    sAuthorization = oSelf.fsGetHeaderValue("Authorization");
+    sAuthorization = oSelf.oHTTPHeaders.fsGet("Authorization");
     if sAuthorization is None:
       return (None, None);
     sBasic, sBase64EncodedUserNameColonPassword = sAuthorization.strip().split(" ", 1);
@@ -314,13 +284,13 @@ class iHTTPMessage(cWithDebugOutput):
     return (sUserName, sPassword);
 
   def fSetBasicAuthorization(oSelf, sUserName, sPassword):
-    oSelf.fSetHeaderValue("Authorization", "%s:%s" % (sUserName, sPassword));
+    oSelf.oHTTPHeaders.fbSet("Authorization", "%s:%s" % (sUserName, sPassword));
   
   def fsSerialize(oSelf):
     return "\r\n".join([
       oSelf.fsGetStatusLine(),
     ] + [
-      "%s: %s" % (sLowerName, sValue) for (sLowerName, sValue) in oSelf.__dHeader_sValue_by_sLowerName.items()
+      "%s: %s" % (sName, sValue) for (sName, sValue) in oSelf.oHTTPHeaders.fatsGetNamesAndValues()
     ] + [
       "",
       oSelf.sBody or "",

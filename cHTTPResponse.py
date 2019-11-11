@@ -20,7 +20,7 @@ class cHTTPResponse(iHTTPMessage):
       raise iHTTPMessage.cInvalidHTTPMessageException("The remote send an invalid status code in the status line.", sStatusCode);
     return {"sHTTPVersion": sHTTPVersion, "uStatusCode": uStatusCode, "sReasonPhrase": sReasonPhrase};
   
-  def __init__(oSelf, sHTTPVersion = None, uStatusCode = None, sReasonPhrase = None, dHeader_sValue_by_sName = None, sBody = None, sData = None, asBodyChunks = None, dxMetaData = None):
+  def __init__(oSelf, sHTTPVersion = None, uStatusCode = None, sReasonPhrase = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None, dxMetaData = None):
     if uStatusCode is None:
       uStatusCode = 200;
     else:
@@ -30,7 +30,7 @@ class cHTTPResponse(iHTTPMessage):
     oSelf.__uStatusCode = uStatusCode;
     oSelf.__sReasonPhrase = sReasonPhrase or dsHTTPCommonReasonPhrase_by_uStatusCode.get(uStatusCode, "Unspecified");
     
-    iHTTPMessage.__init__(oSelf, sHTTPVersion, dHeader_sValue_by_sName, sBody, sData, asBodyChunks, dxMetaData);
+    iHTTPMessage.__init__(oSelf, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks, dxMetaData);
   
   @property
   def uStatusCode(oSelf):

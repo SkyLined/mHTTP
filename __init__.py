@@ -37,6 +37,7 @@ from .cCertificateStore import cCertificateStore;
 from .cHTTPClient import cHTTPClient;
 from .cHTTPClientProxyServer import cHTTPClientProxyServer;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
+from .cHTTPHeaders import cHTTPHeaders;
 from .cHTTPRequest import cHTTPRequest;
 from .cHTTPResponse import cHTTPResponse;
 from .cHTTPServer import cHTTPServer;
@@ -69,6 +70,7 @@ all = [
   "cHTTPClient",
   "cHTTPClientProxyServer",
   "cHTTPClientUsingProxyServer",
+  "cHTTPHeaders",
   "cHTTPRequest",
   "cHTTPResponse",
   "cHTTPServer",
