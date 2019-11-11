@@ -50,36 +50,35 @@ import mHTTP;
 # Restore the search path
 sys.path = asOriginalSysPath;
 
-from mDebugOutput import fDebugOutput, fFatalExceptionOutput, fShowFileDebugOutputForClass;
+from mDebugOutput import fDebugOutput, fFatalExceptionOutput, fShowFileDebugOutputForClass, fShowAllDebugOutput;
 try:
-  from mHTTP import cBufferedSocket, cCertificateAuthority, cCertificateStore, cHTTPClient, cHTTPClientProxyServer, \
-      cHTTPClientUsingProxyServer, cHTTPServer, cHTTPConnection, cURL;
+  from mHTTP import *;
   from fTestClient import fTestClient;
   from fTestServer import fTestServer;
   from fTestProxyServer import fTestProxyServer;
   
   from mHTTP.cHTTPConnectionsToServerPool import cHTTPConnectionsToServerPool;
-  from mHTTP.cHTTPRequest import cHTTPRequest;
-  from mHTTP.cHTTPResponse import cHTTPResponse;
   from mHTTP.cSSLContext import cSSLContext;
   from mHTTP.iHTTPMessage import iHTTPMessage;
   from mMultiThreading import cLock;
 
   # Enable/disable output for all classes
-#  fShowFileDebugOutputForClass(cBufferedSocket);
-#  fShowFileDebugOutputForClass(cCertificateAuthority);
-#  fShowFileDebugOutputForClass(cCertificateStore);
-#  fShowFileDebugOutputForClass(cHTTPClient);
-#  fShowFileDebugOutputForClass(cHTTPClientProxyServer);
-#  fShowFileDebugOutputForClass(cHTTPClientUsingProxyServer);
-#  fShowFileDebugOutputForClass(cHTTPConnection);
-#  fShowFileDebugOutputForClass(cHTTPConnectionsToServerPool);
-#  fShowFileDebugOutputForClass(cHTTPRequest);
-#  fShowFileDebugOutputForClass(cHTTPResponse);
-#  fShowFileDebugOutputForClass(cHTTPServer);
-#  fShowFileDebugOutputForClass(cLock);
-#  fShowFileDebugOutputForClass(cURL);
-#  fShowFileDebugOutputForClass(iHTTPMessage);
+  if len(sys.argv) > 1 and sys.argv[1] == "--debug":
+    fShowFileDebugOutputForClass(cBufferedSocket);
+    fShowFileDebugOutputForClass(cCertificateAuthority);
+    fShowFileDebugOutputForClass(cCertificateStore);
+    fShowFileDebugOutputForClass(cHTTPClient);
+    fShowFileDebugOutputForClass(cHTTPClientProxyServer);
+    fShowFileDebugOutputForClass(cHTTPClientUsingProxyServer);
+    fShowFileDebugOutputForClass(cHTTPConnection);
+    fShowFileDebugOutputForClass(cHTTPConnectionsToServerPool);
+    fShowFileDebugOutputForClass(cHTTPHeaders);
+    fShowFileDebugOutputForClass(cHTTPRequest);
+    fShowFileDebugOutputForClass(cHTTPResponse);
+    fShowFileDebugOutputForClass(cHTTPServer);
+    fShowFileDebugOutputForClass(cLock);
+    fShowFileDebugOutputForClass(cURL);
+    fShowFileDebugOutputForClass(iHTTPMessage);
 
   sCertificatesPath = os.path.join(sMainFolderPath, "Certificates");
 
