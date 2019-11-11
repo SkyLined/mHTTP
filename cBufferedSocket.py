@@ -324,10 +324,10 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
           if not fbSocketExceptionIsTimeout(oException):
             oSelf.fStatusOutput("Exception %s while attempting to read data." % repr(oException));
             oSelf.fCloseForReading();
-      if oSelf.__sBuffer and oSelf.__oTransactionStartedLock.fbAcquire(0): # lock if not already locked.
-        oSelf.fStatusOutput("Transaction started.");
       bHasData = len(oSelf.__sBuffer) > 0;
-      return oSelf.fxExitFunctionOutput(bHasData);
+      if bHasData and oSelf.__oTransactionStartedLock.fbAcquire(0): # lock if not already locked.
+        oSelf.fStatusOutput("Transaction started.");
+      return oSelf.fxExitFunctionOutput(bHasData, "%d bytes buffered" % len(oSelf.__sBuffer));
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
