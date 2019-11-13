@@ -32,11 +32,13 @@ asUnexpectedModules = list(set([
         # These are optional, not required:
         "oConsole", "mWindowsSDK",
         # These built-in modules are expected:
-        "Queue", "StringIO", "base64", "binascii", "cStringIO", "collections",
-        "contextlib", "ctypes", "gc", "gzip", "heapq", "io", "itertools",
-        "json", "keyword", "msvcrt", "nturl2path", "platform", "socket", "ssl",
-        "string", "strop", "struct", "subprocess", "textwrap", "thread",
-        "threading", "time", "urllib", "urlparse", "zlib"
+        "base64", "binascii", "cStringIO", "collections", "contextlib",
+        "ctypes", "datetime", "dis", "future__", "hashlib", "gc", "gzip",
+        "heapq", "imp", "inspect", "io", "itertools", "json", "keyword",
+        "math", "msvcrt", "nturl2path", "opcode", "platform", "random",
+        "Queue", "socket", "ssl", "string", "StringIO", "strop", "struct",
+        "subprocess", "textwrap", "thread", "threading", "time", "timeit",
+        "token", "tokenize", "urllib", "urlparse", "zlib"
       ]
     )
   )
