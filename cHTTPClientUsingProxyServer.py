@@ -13,10 +13,18 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
   nDefaultConnectTimeoutInSeconds = 10;
   nDefaultTransactionTimeoutInSeconds = 10;
   
-  def __init__(oSelf, oProxyServerURL, oCertificateStore = None, uMaxConnectionsToServer = None):
+  def __init__(oSelf,
+    oProxyServerURL, oCertificateStore = None, uMaxConnectionsToServer = None,
+    nDefaultConnectTimeoutInSeconds = None, nDefaultTransactionTimeoutInSeconds = None
+  ):
     oSelf.__oProxyServerURL = oProxyServerURL;
     oSelf.__oCertificateStore = oCertificateStore or cCertificateStore();
     oSelf.__uMaxConnectionsToServer = uMaxConnectionsToServer or oSelf.uDefaultMaxConnectionsToServer;
+    # If these arguments are provided they overwrite the static default only for this instance.
+    if nDefaultConnectTimeoutInSeconds is not None:
+      oSelf.nDefaultConnectTimeoutInSeconds = nDefaultConnectTimeoutInSeconds;
+    if nDefaultTransactionTimeoutInSeconds is not None:
+      oSelf.nDefaultTransactionTimeoutInSeconds = nDefaultTransactionTimeoutInSeconds;
 
     oSelf.__oProxyServerSSLContext = oCertificateStore.foGetSSLContextForClientWithHostName(oProxyServerURL.sHostName) if oProxyServerURL.bSecure else None;
     
@@ -360,7 +368,10 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
             del oSelf.__doSecureConnectionToServer_by_sProtocolHostPort[sProtocolHostPort];
             break;
         else:
-          raise AssertionError("A connection was terminated that we did not know exists");
+          raise AssertionError("A secure connection was terminated that we did not know exists (unknown: %s, known: %s)" % \
+              (oConnection, ", ".join([
+                str(oKnownConnection) for oKnownConnection in oSelf.__doSecureConnectionToServer_by_sProtocolHostPort.items()
+              ])));
       bTerminated = oSelf.__bStopping and len(oSelf.__faoGetAllConnections()) == 0 and not oSelf.__bTerminated;
     finally:
       oSelf.__oConnectionsLock.fRelease();
