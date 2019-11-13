@@ -704,7 +704,7 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def fsToString(oSelf):
+  def __fsGetDetails(oSelf):
     # We do not hold an exclusive lock, so values can change while we read them. To prevent a double fetch from causing
     # problems (e.g. a value is check to not be None, but then output after it has been changed to None). we will read
     # all values once. This does not protect against race conditions that make the information contradictory (e.g. the
@@ -734,10 +734,18 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
       "stopping" if bStopping else "",
       "terminated" if oSelf.__bTerminated else "",
     ] if s];
-    sDetails = "%s%s%s%s" % (
+    return "%s%s%s%s" % (
       oSelf.sLocalAddress or "??",
       oSelf.__bCreatedLocally and "=>" or "<=",
       oSelf.sRemoteAddress or "??",
       " (%s)" % ", ".join(asAttributes) if asAttributes else "",
     );
-    return "%s{%s}" % (oSelf.__class__.__name__, sDetails);
+  
+  def fsToString(oSelf):
+    return "%s{%s}" % (oSelf.__class__.__name__, oSelf.__fsGetDetails());
+  
+  def __repr__(oSelf):
+    return "<%s %s>" % (oSelf.__class__.__name__, oSelf.__fsGetDetails());
+  
+  def str(oSelf):
+    return "%s %s" % (oSelf.__class__.__name__, oSelf.__fsGetDetails());
