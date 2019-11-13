@@ -516,3 +516,4 @@ class cHTTPConnection(cBufferedSocket):
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
+    
