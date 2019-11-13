@@ -10,9 +10,17 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   nDefaultConnectTimeoutInSeconds = 10;
   nDefaultTransactionTimeoutInSeconds = 10;
   
-  def __init__(oSelf, oCertificateStore = None, uMaxConnectionsToServer = None):
+  def __init__(oSelf,
+    oCertificateStore = None, uMaxConnectionsToServer = None,
+    nDefaultConnectTimeoutInSeconds = None, nDefaultTransactionTimeoutInSeconds = None
+  ):
     oSelf.__oCertificateStore = oCertificateStore or cCertificateStore();
     oSelf.__uMaxConnectionsToServer = uMaxConnectionsToServer or oSelf.uDefaultMaxConnectionsToServer;
+    # If these arguments are provided they overwrite the static default only for this instance.
+    if nDefaultConnectTimeoutInSeconds is not None:
+      oSelf.nDefaultConnectTimeoutInSeconds = nDefaultConnectTimeoutInSeconds;
+    if nDefaultTransactionTimeoutInSeconds is not None:
+      oSelf.nDefaultTransactionTimeoutInSeconds = nDefaultTransactionTimeoutInSeconds;
     
     oSelf.__oConnectionsLock = cLock("%s.__oConnectionsLock" % oSelf.__class__.__name__);
     oSelf.__doConnectionsToServerPool_by_sProtocolHostPort = {};
