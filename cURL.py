@@ -17,7 +17,9 @@ class cURL(cWithDebugOutput):
   
   @staticmethod
   def foFromString(sURL):
-    if not isinstance(sURL, (str, unicode)):
+    if isinstance(sURL, unicode):
+      sURL = str(sURL);
+    elif not isinstance(sURL, str):
       raise cURL.cInvalidURLException("Invalid URL", repr(sURL));
     oURLMatch = re.match("^(?:%s)$" % "".join([
       r"(%s)://" % "|".join([re.escape(sProtocol) for sProtocol in gdtxDefaultPortAndSecure_by_sProtocol.keys()]),
@@ -35,6 +37,7 @@ class cURL(cWithDebugOutput):
       raise cURL.cInvalidURLException("Invalid URL", sURL);
     (sProtocol, sHostName, sPort, sPath, sQuery, sFragment) = oURLMatch.groups();
     return cURL(sProtocol, sHostName, long(sPort) if sPort is not None else None, sPath, sQuery, sFragment);
+  
   # There is also a non-static version that allows relative URLs:
   def foFromRelativeString(oSelf, sURL, bMustBeRelative = False):
     if not isinstance(sURL, (str, unicode)):
