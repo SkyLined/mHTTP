@@ -26,13 +26,13 @@ class cURL(cWithDebugOutput):
       r"(%s)" % "|".join([
         r"\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}", # IP v4
         # TODO: IP v6
-        r"(?:[a-z][a-z0-9\-]*\.)*[a-z][a-z0-9\-]+", # DNS
+        r"(?:[0-9\-]*[a-z][a-z0-9\-]*\.)*[0-9\-]*[a-z][a-z0-9\-]+", # DNS
       ]),
       r"(?:\:(\d+))?",
       r"(\/[^#?]*)?"
       r"(?:\?([^#]*))?",
       r"(?:\#(.*))?",
-    ]), sURL);
+    ]), sURL, re.I);
     if not oURLMatch:
       raise cURL.cInvalidURLException("Invalid URL", sURL);
     (sProtocol, sHostName, sPort, sPath, sQuery, sFragment) = oURLMatch.groups();
