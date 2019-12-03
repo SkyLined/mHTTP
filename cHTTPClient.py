@@ -139,13 +139,13 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   
   def foGetResponseForURL(oSelf,
     oURL,
-    sMethod = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
+    sMethod = None, sHTTPVersion = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
     bCheckHostName = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
     try:
-      (oRequest, oResponse) = oSelf.foGetRequestAndResponseForURL(oURL, sMethod, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      (oRequest, oResponse) = oSelf.foGetRequestAndResponseForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
       return oSelf.fxExitFunctionOutput(oResponse);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -153,13 +153,13 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   
   def foGetRequestAndResponseForURL(oSelf,
     oURL,
-    sMethod = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
+    sMethod = None, sHTTPVersion = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
     bCheckHostName = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
     try:
-      oRequest = oSelf.foGetRequestForURL(oURL, sMethod, oHTTPHeaders, sBody, sData, asBodyChunks);
+      oRequest = oSelf.foGetRequestForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks);
       oResponse = oSelf.foGetResponseForRequestAndURL(oRequest, oURL, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
       return oSelf.fxExitFunctionOutput((oRequest, oResponse));
     except Exception as oException:
@@ -168,13 +168,14 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   
   def foGetRequestForURL(oSelf,
     oURL,
-    sMethod = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
+    sMethod = None, sHTTPVersion = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks);
     try:
       oRequest = cHTTPRequest(
         sURL = oURL.sRelative,
         sMethod = sMethod or "GET",
+        sHTTPVersion = sHTTPVersion,
         oHTTPHeaders = oHTTPHeaders,
         sBody = sBody,
         sData = sData, 
