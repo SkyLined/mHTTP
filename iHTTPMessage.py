@@ -22,20 +22,6 @@ def fsASCII(sData, sDataTypeDescription):
 
 class iHTTPMessage(cWithDebugOutput):
   asSupportedCompressionTypes = ["deflate", "gzip", "x-gzip", "zlib"] + (["br"] if cBrotli else []);
-  ddDefaultHeader_sValue_by_sName_by_sHTTPVersion = {
-    "HTTP/1.0": {
-      "Connection": "Close",
-      "Cache-Control": "No-Cache, Must-Revalidate",
-      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
-      "Oragma": "No-Cache",
-    },
-    "HTTP/1.1": {
-      "Connection": "Keep-Alive",
-      "Cache-Control": "No-Cache, Must-Revalidate",
-      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
-      "Pragma": "No-Cache",
-    },
-  };
   
   class cInvalidHTTPMessageException(cProtocolException):
     pass;
@@ -48,10 +34,7 @@ class iHTTPMessage(cWithDebugOutput):
     assert sData is None or asBodyChunks is None, \
           "Cannot provide both sData (%s) and asBodyChunks (%s)!" % (repr(sData), repr(asBodyChunks));
     oSelf.__sHTTPVersion = sHTTPVersion if sHTTPVersion else "HTTP/1.1";
-    dDefaultHeader_sValue_by_sName = oSelf.ddDefaultHeader_sValue_by_sName_by_sHTTPVersion.get(oSelf.__sHTTPVersion);
-    assert dDefaultHeader_sValue_by_sName, \
-        "Invalid HTTP version %s" % sHTTPVersion;
-    oSelf.oHTTPHeaders = oHTTPHeaders or cHTTPHeaders(dDefaultHeader_sValue_by_sName);
+    oSelf.oHTTPHeaders = oHTTPHeaders or cHTTPHeaders.foDefaultHeadersForHTTPVersion(oSelf.__sHTTPVersion);
     oSelf.__sBody = None;
     oSelf.__asBodyChunks = None;
     oSelf.__dxMetaData = dxMetaData or {};

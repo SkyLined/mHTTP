@@ -1,6 +1,28 @@
 from mDebugOutput import cWithDebugOutput;
 
 class cHTTPHeaders(cWithDebugOutput):
+  ddDefaultHeader_sValue_by_sName_by_sHTTPVersion = {
+    "HTTP/1.0": {
+      "Connection": "Close",
+      "Cache-Control": "No-Cache, Must-Revalidate",
+      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
+      "Oragma": "No-Cache",
+    },
+    "HTTP/1.1": {
+      "Connection": "Keep-Alive",
+      "Cache-Control": "No-Cache, Must-Revalidate",
+      "Expires": "Wed, 16 May 2012 04:01:53 GMT", # 1337
+      "Pragma": "No-Cache",
+    },
+  };
+  
+  @classmethod
+  def foDefaultHeadersForHTTPVersion(cClass, sHTTPVersion):
+    dDefaultHeader_sValue_by_sName = cClass.ddDefaultHeader_sValue_by_sName_by_sHTTPVersion.get(sHTTPVersion);
+    assert dDefaultHeader_sValue_by_sName, \
+        "Invalid HTTP version %s" % sHTTPVersion;
+    return cClass(dDefaultHeader_sValue_by_sName);
+  
   def __init__(oSelf, dsValue_by_sName = None):
     oSelf.__dsStrippedValue_by_sStrippedName = {};
     oSelf.__dsStrippedName_by_sLowerStrippedName = {};
