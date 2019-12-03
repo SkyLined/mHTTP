@@ -106,7 +106,7 @@ class iHTTPMessage(cWithDebugOutput):
     return False;
   
   @property
-  def asCompressionTypes(oself):
+  def asCompressionTypes(oSelf):
     sContentEncoding = oSelf.oHTTPHeaders.fsGet("Content-Encoding");
     return [s.strip().lower() for s in sContentEncoding.split(",")] if sContentEncoding else [];
   
