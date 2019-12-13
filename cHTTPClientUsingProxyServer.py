@@ -108,13 +108,13 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
   ):
     oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
     try:
-      (oRequest, oResponse) = oSelf.foGetRequestAndResponseForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      (oRequest, oResponse) = oSelf.ftoGetRequestAndResponseForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
       return oSelf.fxExitFunctionOutput(oResponse);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def foGetRequestAndResponseForURL(oSelf,
+  def ftoGetRequestAndResponseForURL(oSelf,
     oURL,
     sMethod = None, sHTTPVersion = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
