@@ -208,9 +208,10 @@ class cHTTPConnection(cBufferedSocket):
       try:
         sStatusLine = oSelf.fsReadUntil("\r\n", uMaxStatusLineSize + 2);
       except cBufferedSocket.cTooMuchDataException as oException:
+        sStatusLine = oSelf.fsReadBufferedData();
         raise iHTTPMessage.cInvalidHTTPMessageException(
-          "The status line was too large (>%d bytes)." % len(uMaxStatusLineSize),
-          None,
+          "The status line was too large (%s bytes > %d bytes max)." % (len(sStatusLine), uMaxStatusLineSize),
+          sStatusLine,
         );
       except cBufferedSocket.cTransactionTimeoutException as oException:
         sBufferedData = oSelf.fsReadBufferedData()
@@ -301,9 +302,10 @@ class cHTTPConnection(cBufferedSocket):
         try:
           sBody = oSelf.fsRead(uMaxNumberOfBytes = uMaxBodySize);
         except cBufferedSocket.cTooMuchDataException as oException:
+          sBody = oSelf.fsReadBufferedData();
           raise iHTTPMessage.cInvalidHTTPMessageException(
-            "The body was too large (>%d bytes)." % len(uMaxBodySize),
-            None,
+            "The body was too large (%s bytes > %d bytes max)." % (len(sBody), uMaxBodySize),
+            sBody,
           );
         except cBufferedSocket.cTransactionTimeoutException as oException:
           sReceivedBody = oSelf.fsReadBufferedData();
@@ -354,9 +356,10 @@ class cHTTPConnection(cBufferedSocket):
         try:
           sLine = oSelf.fsReadUntil("\r\n", uMaxNumberOfBytes = uMaxHeaderLineSize + 2);
         except cBufferedSocket.cTooMuchDataException as oException:
+          sLine = oSelf.fsReadBufferedData();
           raise iHTTPMessage.cInvalidHTTPMessageException(
-            "A header line was too large (>%d bytes)." % len(uMaxHeaderLineSize),
-            None,
+            "A header line was too large (%d bytes > %d bytes max)." % (len(sLine), uMaxHeaderLineSize),
+            sLine,
           );
         except cBufferedSocket.cTransactionTimeoutException as oException:
           oException.sMessage += " (attempt to read header line)";
