@@ -21,18 +21,26 @@ class cURL(cWithDebugOutput):
       sURL = str(sURL);
     elif not isinstance(sURL, str):
       raise cURL.cInvalidURLException("Invalid URL", repr(sURL));
-    oURLMatch = re.match("^(?:%s)$" % "".join([
-      r"(%s)://" % "|".join([re.escape(sProtocol) for sProtocol in gdtxDefaultPortAndSecure_by_sProtocol.keys()]),
-      r"(%s)" % "|".join([
-        r"\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}", # IP v4
-        # TODO: IP v6
-        r"(?:[0-9\-]*[a-z\-][a-z0-9\-]*\.)*[0-9\-]*[a-z\-][a-z0-9\-]+", # DNS
-      ]),
-      r"(?:\:(\d+))?",
-      r"(\/[^#?]*)?"
-      r"(?:\?([^#]*))?",
-      r"(?:\#(.*))?",
-    ]), sURL, re.I);
+    oURLMatch = re.match(
+      (
+        r"^"                        # {
+        r"(%s)://"                  #   (protocol) "://"
+        r"("                        #   (either {
+          r"\d{1,3}(?:.\d{1,3}){3}" #     IP v4
+        r"|"                        #   } or {
+          r"(?:[0-9\-]*[a-z\-][a-z0-9\-]*\.)*[0-9\-]*[a-z\-][a-z0-9\-]+" # DNS
+        r")"                        #   })
+        r"(?:" r"\:(\d+)" r")?"     #   ":" (port)
+        r"(\/[^#?]*)?"              #   optional { ("/" path) }
+        r"(?:\?([^#]*))?"           #   optional { "?" (query) }
+        r"(?:\#(.*))?"              #   optional { "#" (fragement) }
+        r"$"                        # }
+      ) % (
+        "|".join([re.escape(sProtocol) for sProtocol in gdtxDefaultPortAndSecure_by_sProtocol.keys()])
+      ),
+      sURL,
+      re.I
+    );
     if not oURLMatch:
       raise cURL.cInvalidURLException("Invalid URL", sURL);
     (sProtocol, sHostname, sPort, sPath, sQuery, sFragment) = oURLMatch.groups();
