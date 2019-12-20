@@ -25,30 +25,41 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
     pass;
   
   @classmethod
-  def foConnectTo(cClass, sHostName, uPort, oSSLContext = None, nConnectTimeoutInSeconds = None, bCheckHostName = None):
-    sAddress = "%s:%d" % (sHostName, uPort);
+  def foConnectTo(cClass, sHostname, uPort, oSSLContext = None, nConnectTimeoutInSeconds = None, bCheckHostname = None):
     if nConnectTimeoutInSeconds is None:
       nConnectTimeoutInSeconds = oSelf.nDefaultConnectTimeoutInSeconds;
     oPythonSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
     nMaxConnectEndTime = time.clock() + nConnectTimeoutInSeconds;
     try:
       oPythonSocket.settimeout(nConnectTimeoutInSeconds);
-      oPythonSocket.connect((sHostName, uPort));
+      oPythonSocket.connect((sHostname, uPort));
     except socket.gaierror as oException:
-      raise cClass.cConnectToUnknownAddressException("Cannot resolve hostname", "hostname = %s" % sHostName);
+      raise cClass.cConnectToUnknownAddressException(
+        "Cannot resolve hostname",
+        "hostname = %s" % sHostname,
+      );
     except socket.timeout as oException:
-      raise cClass.cConnectTimeoutException("Cannot connect to server", "timeout = %s seconds" % nConnectTimeoutInSeconds);
+      raise cClass.cConnectTimeoutException(
+        "Cannot connect to server",
+        "hostname = %s, port = %d, timeout = %s seconds" % (sHostname, uPort, nConnectTimeoutInSeconds),
+      );
     except socket.error as oException:
       if oException.errno == 10061:
-        raise cClass.cConnectionRefusedException("Connection refused by remote host", "hostname = %s, port = %d, exception = %s" % (sHostName, uPort, repr(oException)));
-      raise cClass.cConnectToInvalidAddressException("Invalid server address", "hostname = %s, port = %d, exception = %s" % (sHostName, uPort, repr(oException)));
+        raise cClass.cConnectionRefusedException(
+          "Connection refused by remote host",
+          "hostname = %s, port = %d, exception = %s" % (sHostname, uPort, repr(oException))
+        );
+      raise cClass.cConnectToInvalidAddressException(
+        "Invalid server address",
+        "hostname = %s, port = %d, exception = %s" % (sHostname, uPort, repr(oException))
+      );
     oBufferedSocket = cClass(oPythonSocket, bCreatedLocally = True);
     if oSSLContext:
       nRemainingTimeoutInSeconds = nMaxConnectEndTime - time.clock();
       assert oBufferedSocket.fbStartTransaction(nRemainingTimeoutInSeconds), \
           "Inversed polarity on the manifold; transwarp offline";
       try:
-        oBufferedSocket.fWrapInSSLContext(oSSLContext, bCheckHostName);
+        oBufferedSocket.fWrapInSSLContext(oSSLContext, bCheckHostname);
       finally:
         oBufferedSocket.fEndTransaction();
     return oBufferedSocket;
@@ -130,7 +141,7 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def fWrapInSSLContext(oSelf, oSSLContext, bCheckHostName = None):
+  def fWrapInSSLContext(oSelf, oSSLContext, bCheckHostname = None):
     oSelf.fEnterFunctionOutput(oSSLContext = oSSLContext.fsToString());
     try:
       if not oSelf.__oTransactionLock.bLocked:
@@ -142,7 +153,7 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
         oSelf.fStatusOutput("Transaction started.");
       # We will wrap __oPythonSocket, as this allows us to wrap a socket in SSL any number of times.
       # Note that we do not keep a reference to any SSL socket wrappers but the last one.
-      oSelf.__oPythonSSLSocket = oSSLContext.foWrapSocket(oSelf.__oPythonSocket, oSelf.nRemainingTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+      oSelf.__oPythonSSLSocket = oSSLContext.foWrapSocket(oSelf.__oPythonSocket, oSelf.nRemainingTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname);
       oSelf.__oPythonSocket = oSelf.__oPythonSSLSocket;
       oSelf.__oSSLContext = oSSLContext;
       oSelf.fExitFunctionOutput();
@@ -151,11 +162,11 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def fCheckHostName(oSelf):
+  def fCheckHostname(oSelf):
     oSelf.fEnterFunctionOutput();
     try:
       try:
-        oSelf.__oSSLContext.fCheckHostName(oSelf.__oPythonSocket);
+        oSelf.__oSSLContext.fCheckHostname(oSelf.__oPythonSocket);
       except oException:
         oSelf.fTerminate();
         raise;

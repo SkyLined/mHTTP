@@ -8,10 +8,10 @@ def fTestServer(oCertificateStore, oServerURL):
   # Can be use to test cHTTPServer with a http:// or https:// URL.
   fDebugOutput(("**** Creating a cHTTPServer instance at %s " % oServerURL).ljust(160, "*"));
   if oServerURL.bSecure:
-    oSSLContext = oCertificateStore.foGetSSLContextForServerWithHostName(oServerURL.sHostName);
+    oSSLContext = oCertificateStore.foGetSSLContextForServerWithHostname(oServerURL.sHostname);
   else:
     oSSLContext = None;
-  oHTTPServer = cHTTPServer(oServerURL.sHostName, oServerURL.uPort, oSSLContext);
+  oHTTPServer = cHTTPServer(oServerURL.sHostname, oServerURL.uPort, oSSLContext);
   fDebugOutput(("**** Starting the cHTTPServer instance at %s " % oServerURL).ljust(160, "*"));
   oHTTPServer.fStart(foRequestHandler);
   fDebugOutput("**** Creating a new cHTTPClient instance ".ljust(160, "*"));

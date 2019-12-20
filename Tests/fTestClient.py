@@ -41,11 +41,11 @@ def fTestClient(oCertificateStore, oTestURL, oSecureTestURL, oUnknownAddressURL,
   
   # Create a server on a socket but do not listen so connections are refused.
   oConnectionRefusedServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
-  oConnectionRefusedServerSocket.bind((oConnectionRefusedURL.sHostName, oConnectionRefusedURL.uPort));
+  oConnectionRefusedServerSocket.bind((oConnectionRefusedURL.sHostname, oConnectionRefusedURL.uPort));
   
   # Create a server on a socket that sends out-of-band data.
   oOutOfBandDataServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
-  oOutOfBandDataServerSocket.bind((oOutOfBandDataURL.sHostName, oOutOfBandDataURL.uPort));
+  oOutOfBandDataServerSocket.bind((oOutOfBandDataURL.sHostname, oOutOfBandDataURL.uPort));
   oOutOfBandDataServerSocket.listen(1);
   oResponse = mHTTP.cHTTPResponse(sData = "Hello, world!");
   sResponseWithOutOfBandData = oResponse.fsSerialize() + oResponse.fsSerialize();
@@ -63,7 +63,7 @@ def fTestClient(oCertificateStore, oTestURL, oSecureTestURL, oUnknownAddressURL,
   
   # Create a server on a socket that immediately closes the connection.
   oConnectionClosedServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
-  oConnectionClosedServerSocket.bind((oConnectionClosedURL.sHostName, oConnectionClosedURL.uPort));
+  oConnectionClosedServerSocket.bind((oConnectionClosedURL.sHostname, oConnectionClosedURL.uPort));
   oConnectionClosedServerSocket.listen(1);
   def fConnectionClosedServerThread():
     (oClientSocket, (sClientIP, uClientPort)) = oConnectionClosedServerSocket.accept();
@@ -74,7 +74,7 @@ def fTestClient(oCertificateStore, oTestURL, oSecureTestURL, oUnknownAddressURL,
 
   # Create a server on a socket that sends an invalid response.
   oInvalidHTTPMessageServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
-  oInvalidHTTPMessageServerSocket.bind((oInvalidHTTPMessageURL.sHostName, oInvalidHTTPMessageURL.uPort));
+  oInvalidHTTPMessageServerSocket.bind((oInvalidHTTPMessageURL.sHostname, oInvalidHTTPMessageURL.uPort));
   oInvalidHTTPMessageServerSocket.listen(1);
   sInvalidResponse = "Hello, world!\r\n";
   def fInvalidHTTPMessageServerThread():

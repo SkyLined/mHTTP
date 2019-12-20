@@ -4,48 +4,48 @@ from .cSSLContext import cSSLContext;
 class cCertificateStore(cWithDebugOutput):
   def __init__(oSelf):
     oSelf.__aoCertificateAuthorities = [];
-    oSelf.__dsCertificateFilePath_by_sHostName = {};
-    oSelf.__dsKeyFilePath_by_sHostName = {};
-    oSelf.__doSSLContextForClient_by_sHostName = {};
-    oSelf.__doSSLContextForServer_by_sHostName = {};
+    oSelf.__dsCertificateFilePath_by_sHostname = {};
+    oSelf.__dsKeyFilePath_by_sHostname = {};
+    oSelf.__doSSLContextForClient_by_sHostname = {};
+    oSelf.__doSSLContextForServer_by_sHostname = {};
   
   def fAddCertificateAuthority(oSelf, oCertificateAuthority):
-    assert not (oSelf.__doSSLContextForClient_by_sHostName or oSelf.__doSSLContextForServer_by_sHostName), \
+    assert not (oSelf.__doSSLContextForClient_by_sHostname or oSelf.__doSSLContextForServer_by_sHostname), \
         "Cannot add CAs after creating SSLContexts";
     oSelf.__aoCertificateAuthorities.append(oCertificateAuthority);
   
-  def fAddCertificateFilePathForHostName(sHostName, sCertificateFilePath):
-    oSelf.__dsCertificateFilePath_by_sHostName[sHostName] = sCertificateFilePath;
+  def fAddCertificateFilePathForHostname(sHostname, sCertificateFilePath):
+    oSelf.__dsCertificateFilePath_by_sHostname[sHostname] = sCertificateFilePath;
   
-  def fAddCertificateAndKeyFilePathsForHostName(sHostName, sCertificateFilePath, sKeyFilePath):
-    oSelf.__dsCertificateFilePath_by_sHostName[sHostName] = sCertificateFilePath;
-    oSelf.__dsKeyFilePath_by_sHostName[sHostName] = sKeyFilePath;
+  def fAddCertificateAndKeyFilePathsForHostname(sHostname, sCertificateFilePath, sKeyFilePath):
+    oSelf.__dsCertificateFilePath_by_sHostname[sHostname] = sCertificateFilePath;
+    oSelf.__dsKeyFilePath_by_sHostname[sHostname] = sKeyFilePath;
 
-  def foAddSSLContextForServerWithHostName(oSelf, oSSLContext, sHostName):
-    assert sHostName not in oSelf.__doSSLContextForServer_by_sHostName, \
-        "Cannot add two SSL contexts for the same server (%s)" % sHostName;
-    oSelf.__doSSLContextForServer_by_sHostName[sHostName] = oSSLContext;
+  def foAddSSLContextForServerWithHostname(oSelf, oSSLContext, sHostname):
+    assert sHostname not in oSelf.__doSSLContextForServer_by_sHostname, \
+        "Cannot add two SSL contexts for the same server (%s)" % sHostname;
+    oSelf.__doSSLContextForServer_by_sHostname[sHostname] = oSSLContext;
   
-  def foGetSSLContextForServerWithHostName(oSelf, sHostName):
-    oSelf.fEnterFunctionOutput(sHostName = sHostName);
+  def foGetSSLContextForServerWithHostname(oSelf, sHostname):
+    oSelf.fEnterFunctionOutput(sHostname = sHostname);
     try:
-      oSSLContext = oSelf.__doSSLContextForServer_by_sHostName.get(sHostName);
+      oSSLContext = oSelf.__doSSLContextForServer_by_sHostname.get(sHostname);
       if not oSSLContext:
-        sCertificateFilePath = oSelf.__dsCertificateFilePath_by_sHostName.get(sHostName);
+        sCertificateFilePath = oSelf.__dsCertificateFilePath_by_sHostname.get(sHostname);
         if sCertificateFilePath:
-          sKeyFilePath = oSelf.__dsKeyFilePath_by_sHostName.get(sHostName);
+          sKeyFilePath = oSelf.__dsKeyFilePath_by_sHostname.get(sHostname);
           if sKeyFilePath:
-            oSSLContext = cSSLContext.foForServerWithHostNameAndKeyAndCertificateFilePath(sHostName, sKeyFilePath, sCertificateFilePath);
+            oSSLContext = cSSLContext.foForServerWithHostnameAndKeyAndCertificateFilePath(sHostname, sKeyFilePath, sCertificateFilePath);
           else:
-            oSSLContext = cSSLContext.foForServerWithHostNameAndCertificateFilePath(sHostName, sCertificateFilePath);
+            oSSLContext = cSSLContext.foForServerWithHostnameAndCertificateFilePath(sHostname, sCertificateFilePath);
         else:
           for oCertificateAuthority in oSelf.__aoCertificateAuthorities:
-            oSSLContext = oCertificateAuthority.foGetSSLContextForServerWithHostName(sHostName);
+            oSSLContext = oCertificateAuthority.foGetSSLContextForServerWithHostname(sHostname);
             if oSSLContext:
               break;
           else:
-            raise AssertionError("No certificate file was found for %s and not CA has one either" % sHostName);
-        oSelf.__doSSLContextForServer_by_sHostName[sHostName] = oSSLContext;
+            raise AssertionError("No certificate file was found for %s and not CA has one either" % sHostname);
+        oSelf.__doSSLContextForServer_by_sHostname[sHostname] = oSSLContext;
         for oCertificateAuthority in oSelf.__aoCertificateAuthorities:
           oSSLContext.fAddCertificateAuthority(oCertificateAuthority);
       return oSelf.fxExitFunctionOutput(oSSLContext);
@@ -53,17 +53,17 @@ class cCertificateStore(cWithDebugOutput):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def foGetSSLContextForClientWithHostName(oSelf, sHostName):
-    oSelf.fEnterFunctionOutput(sHostName = sHostName);
+  def foGetSSLContextForClientWithHostname(oSelf, sHostname):
+    oSelf.fEnterFunctionOutput(sHostname = sHostname);
     try:
-      oSSLContext = oSelf.__doSSLContextForClient_by_sHostName.get(sHostName);
+      oSSLContext = oSelf.__doSSLContextForClient_by_sHostname.get(sHostname);
       if not oSSLContext:
-        sCertificateFilePath = oSelf.__dsCertificateFilePath_by_sHostName.get(sHostName);
+        sCertificateFilePath = oSelf.__dsCertificateFilePath_by_sHostname.get(sHostname);
         if sCertificateFilePath:
-          oSSLContext = cSSLContext.foForClientWithHostNameAndCertificateFilePath(sHostName, sCertificateFilePath);
+          oSSLContext = cSSLContext.foForClientWithHostnameAndCertificateFilePath(sHostname, sCertificateFilePath);
         else:
-          oSSLContext = cSSLContext.foForClientWithHostName(sHostName);
-        oSelf.__doSSLContextForClient_by_sHostName[sHostName] = oSSLContext;
+          oSSLContext = cSSLContext.foForClientWithHostname(sHostname);
+        oSelf.__doSSLContextForClient_by_sHostname[sHostname] = oSSLContext;
         for oCertificateAuthority in oSelf.__aoCertificateAuthorities:
           oSSLContext.fAddCertificateAuthority(oCertificateAuthority);
       return oSelf.fxExitFunctionOutput(oSSLContext);

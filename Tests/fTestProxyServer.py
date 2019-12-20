@@ -4,7 +4,7 @@ from mDebugOutput import fDebugOutput;
 def fTestProxyServer(oProxyServerURL, oCertificateStore, oExampleURL, oSecureExampleURL, oInterceptSSLConnectionsCertificateAuthority = None):
   fDebugOutput("**** Creating and starting a cHTTPClientProxyServer instance ".ljust(160, "*"));
   oProxyServer = cHTTPClientProxyServer(
-    sHostName = oProxyServerURL.sHostName,
+    sHostname = oProxyServerURL.sHostname,
     uPort = oProxyServerURL.uPort,
     oCertificateStore = oCertificateStore,
     oInterceptSSLConnectionsCertificateAuthority = oInterceptSSLConnectionsCertificateAuthority,

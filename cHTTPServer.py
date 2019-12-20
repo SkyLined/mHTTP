@@ -9,13 +9,13 @@ from mMultiThreading import cLock, cThread, cWithCallbacks;
 
 class cHTTPServer(cWithCallbacks, cWithDebugOutput):
   nDefaultWaitForRequestTimeoutInSeconds = 20;
-  def __init__(oSelf, sHostName = None, uPort = None, oSSLContext = None, nWaitForRequestTimeoutInSeconds = None, bLocal = True):
+  def __init__(oSelf, sHostname = None, uPort = None, oSSLContext = None, nWaitForRequestTimeoutInSeconds = None, bLocal = True):
     oSelf.__bBound = False;
-    if sHostName is None:
-      sHostName = "127.0.0.1" if bLocal else socket.gethostbyname(socket.gethostname());
+    if sHostname is None:
+      sHostname = "127.0.0.1" if bLocal else socket.gethostbyname(socket.gethostname());
     if uPort is None:
       uPort = oSSLContext and 443 or 80;
-    oSelf.__oURL = cURL(sProtocol = "https" if oSSLContext else "http", sHostName = sHostName, uPort = uPort);
+    oSelf.__oURL = cURL(sProtocol = "https" if oSSLContext else "http", sHostname = sHostname, uPort = uPort);
     oSelf.__oSSLContext = oSSLContext;
     oSelf.__nWaitForRequestTimeoutInSeconds = nWaitForRequestTimeoutInSeconds or oSelf.nDefaultWaitForRequestTimeoutInSeconds;
     
@@ -122,7 +122,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
       oSelf.__oMainLock.fAcquire();
       try:
         if not oSelf.__bBound:
-          txAddress = (oSelf.__oURL.sHostName, oSelf.__oURL.uPort);
+          txAddress = (oSelf.__oURL.sHostname, oSelf.__oURL.uPort);
           oSelf.__oServerSocket.bind(txAddress);
           oSelf.__bBound = True;
         assert not oSelf.__bStopping, \

@@ -35,8 +35,8 @@ class cURL(cWithDebugOutput):
     ]), sURL, re.I);
     if not oURLMatch:
       raise cURL.cInvalidURLException("Invalid URL", sURL);
-    (sProtocol, sHostName, sPort, sPath, sQuery, sFragment) = oURLMatch.groups();
-    return cURL(sProtocol, sHostName, long(sPort) if sPort is not None else None, sPath, sQuery, sFragment);
+    (sProtocol, sHostname, sPort, sPath, sQuery, sFragment) = oURLMatch.groups();
+    return cURL(sProtocol, sHostname, long(sPort) if sPort is not None else None, sPath, sQuery, sFragment);
   
   # There is also a non-static version that allows relative URLs:
   def foFromRelativeString(oSelf, sURL, bMustBeRelative = False):
@@ -63,11 +63,11 @@ class cURL(cWithDebugOutput):
       sFragment = sFragment if sPath or sQuery or sFragment is not None else UNSPECIFIED,
     );
   
-  def __init__(oSelf, sProtocol, sHostName, uPort = None, sPath = None, sQuery = None, sFragment = None):
+  def __init__(oSelf, sProtocol, sHostname, uPort = None, sPath = None, sQuery = None, sFragment = None):
     assert isinstance(sProtocol, str), \
         "sProtocol must be an sASCII string, not %s" % repr(sProtocol);
-    assert isinstance(sHostName, str), \
-        "sHostName must be an sASCII string, not %s" % repr(sHostName);
+    assert isinstance(sHostname, str), \
+        "sHostname must be an sASCII string, not %s" % repr(sHostname);
     assert uPort is None or isinstance(uPort, (int, long)), \
         "uPort must be None, an int or a long, not %s" % repr(uPort);
     assert sPath is None or isinstance(sPath, str), \
@@ -77,16 +77,16 @@ class cURL(cWithDebugOutput):
     assert sFragment is None or isinstance(sFragment, str), \
         "sFragment must be None or an ASCII string, not %s" % repr(sFragment);
     oSelf.__sProtocol = sProtocol;
-    oSelf.__sHostName = sHostName;
+    oSelf.__sHostname = sHostname;
     oSelf.__uPort = uPort;
     oSelf.sPath = sPath; # Use setter so we can reuse code that guarantees this starts with "/"
     oSelf.__sQuery = sQuery;
     oSelf.__sFragment = sFragment;
   
-  def foClone(oSelf, sProtocol = UNSPECIFIED, sHostName = UNSPECIFIED, uPort = UNSPECIFIED, sPath = UNSPECIFIED, sQuery = UNSPECIFIED, sFragment = UNSPECIFIED):
+  def foClone(oSelf, sProtocol = UNSPECIFIED, sHostname = UNSPECIFIED, uPort = UNSPECIFIED, sPath = UNSPECIFIED, sQuery = UNSPECIFIED, sFragment = UNSPECIFIED):
     return cURL(
       sProtocol = sProtocol if sProtocol is not UNSPECIFIED else oSelf.__sProtocol,
-      sHostName = sHostName if sHostName is not UNSPECIFIED else oSelf.__sHostName,
+      sHostname = sHostname if sHostname is not UNSPECIFIED else oSelf.__sHostname,
       uPort = uPort if uPort is not UNSPECIFIED else oSelf.__uPort,
       sPath = sPath if sPath is not UNSPECIFIED else oSelf.__sPath,
       sQuery = sQuery if sQuery is not UNSPECIFIED else oSelf.__sQuery,
@@ -104,13 +104,13 @@ class cURL(cWithDebugOutput):
   
   ### Hostname #################################################################
   @property
-  def sHostName(oSelf):
-    return oSelf.__sHostName;
-  @sHostName.setter
-  def sHostName(oSelf, sHostName):
-    assert isinstance(sHostName, str), \
-        "sHostName must be an sASCII string, not %s" % repr(sHostName);
-    oSelf.__sHostName = sHostName;
+  def sHostname(oSelf):
+    return oSelf.__sHostname;
+  @sHostname.setter
+  def sHostname(oSelf, sHostname):
+    assert isinstance(sHostname, str), \
+        "sHostname must be an sASCII string, not %s" % repr(sHostname);
+    oSelf.__sHostname = sHostname;
   
   ### Port #####################################################################
   @property
@@ -185,20 +185,20 @@ class cURL(cWithDebugOutput):
   ### Convenience ##############################################################
   @property
   def sAddress(oSelf):
-    return "%s:%d" % (oSelf.__sHostName, oSelf.__uPort);
+    return "%s:%d" % (oSelf.__sHostname, oSelf.__uPort);
   
   @property
-  def sHostNameAndPort(oSelf):
+  def sHostnameAndPort(oSelf):
     bNonDefaultPort = oSelf.__uPort not in [None, gdtxDefaultPortAndSecure_by_sProtocol[oSelf.__sProtocol][0]];
-    return oSelf.__sHostName + (":%d" % oSelf.__uPort if bNonDefaultPort else "");
+    return oSelf.__sHostname + (":%d" % oSelf.__uPort if bNonDefaultPort else "");
   
   @property
   def oBase(oSelf):
-    return cURL(sProtocol = oSelf.__sProtocol, sHostName = oSelf.sHostName, uPort = oSelf.uPort);
+    return cURL(sProtocol = oSelf.__sProtocol, sHostname = oSelf.sHostname, uPort = oSelf.uPort);
   
   @property
   def sBase(oSelf):
-    return oSelf.__sProtocol + "://" + oSelf.sHostNameAndPort;
+    return oSelf.__sProtocol + "://" + oSelf.sHostnameAndPort;
   
   @property
   def sRelative(oSelf):
@@ -217,7 +217,7 @@ class cURL(cWithDebugOutput):
   def fasDump(oSelf):
     return [
       "sProtocol: %s" % repr(oSelf.__sProtocol),
-      "sHostName: %s" % repr(oSelf.__sHostName),
+      "sHostname: %s" % repr(oSelf.__sHostname),
       "uPort: %s" % repr(oSelf.__uPort),
       "sPath: %s" % repr(oSelf.__sPath),
       "sQuery: %s" % repr(oSelf.__sQuery),

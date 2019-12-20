@@ -114,11 +114,11 @@ class cHTTPConnectionsToServerPool(cWithCallbacks, cWithDebugOutput):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def foGetResponseForRequest(oSelf, oRequest, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName = None):
-    oSelf.fEnterFunctionOutput(oRequest = oRequest.fsToString(), nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
-    if bCheckHostName is None:
+  def foGetResponseForRequest(oSelf, oRequest, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname = None):
+    oSelf.fEnterFunctionOutput(oRequest = oRequest.fsToString(), nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname);
+    if bCheckHostname is None:
       # If not specified, always check the hostname when the connection is secure.
-      bCheckHostName = oSelf.__oSSLContext;
+      bCheckHostname = oSelf.__oSSLContext;
     try:
       nMaxConnectEndTime = time.clock() + nConnectTimeoutInSeconds;
       while 1:
@@ -129,14 +129,14 @@ class cHTTPConnectionsToServerPool(cWithCallbacks, cWithDebugOutput):
         # Returns None of response was not received.
         # Returns cResponse instance if response was received.
         oSelf.fStatusOutput("Getting connection...");
-        oConnection = oSelf.foGetConnectionAndStartTransaction(nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+        oConnection = oSelf.foGetConnectionAndStartTransaction(nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname);
         if oConnection is None:
           assert oSelf.__bStopping, \
               "None is not expected unless we're stopping.";
           return oSelf.fxExitFunctionOutput(None, "Stopping.");
         try:
-          if bCheckHostName:
-            oConnection.fCheckHostName(); # closes connection and raises an exception if the hostname doesn't match
+          if bCheckHostname:
+            oConnection.fCheckHostname(); # closes connection and raises an exception if the hostname doesn't match
           oResponse = oConnection.foGetResponseForRequest(oRequest);
         finally:
           oConnection.fEndTransaction();
@@ -149,8 +149,8 @@ class cHTTPConnectionsToServerPool(cWithCallbacks, cWithDebugOutput):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def foGetConnectionAndStartTransaction(oSelf, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName, bNoSSLNegotiation = None):
-    oSelf.fEnterFunctionOutput(nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName, bNoSSLNegotiation = bNoSSLNegotiation);
+  def foGetConnectionAndStartTransaction(oSelf, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname, bNoSSLNegotiation = None):
+    oSelf.fEnterFunctionOutput(nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname, bNoSSLNegotiation = bNoSSLNegotiation);
     try:
       # We may have to wait for a connection to become available, so we'll calculate the remaining time until the
       # transaction should be finished each time to determining the remaining transaction time.
@@ -173,7 +173,7 @@ class cHTTPConnectionsToServerPool(cWithCallbacks, cWithDebugOutput):
                 # This socket is open and can be reused.
                 return oSelf.fxExitFunctionOutput(oConnection, "Reuse");
           if len(oSelf.__aoConnections) < oSelf.__uMaxConnectionsToServer:
-            oConnection = oSelf.__foCreateNewConnectionAndStartTransaction(min(nConnectTimeoutInSeconds, nRemainingTransactionTimeoutInSeconds), nRemainingTransactionTimeoutInSeconds, bCheckHostName, bNoSSLNegotiation);
+            oConnection = oSelf.__foCreateNewConnectionAndStartTransaction(min(nConnectTimeoutInSeconds, nRemainingTransactionTimeoutInSeconds), nRemainingTransactionTimeoutInSeconds, bCheckHostname, bNoSSLNegotiation);
             return oSelf.fxExitFunctionOutput(oConnection, "New");
         finally:
           oSelf.__oConnectionsLock.fRelease();
@@ -184,19 +184,19 @@ class cHTTPConnectionsToServerPool(cWithCallbacks, cWithDebugOutput):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def __foCreateNewConnectionAndStartTransaction(oSelf, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName, bNoSSLNegotiation):
+  def __foCreateNewConnectionAndStartTransaction(oSelf, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname, bNoSSLNegotiation):
     # ASSUMES __oConnectionsLock has been acquired!!
-    oSelf.fEnterFunctionOutput(nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName, bNoSSLNegotiation = bNoSSLNegotiation);
+    oSelf.fEnterFunctionOutput(nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname, bNoSSLNegotiation = bNoSSLNegotiation);
     try:
       # Create a new socket and return that.
       nMaxEndTransactionTime = time.clock() + nTransactionTimeoutInSeconds;
       oSelf.fStatusOutput("Connecting to %s..." % oSelf.__oServerBaseURL);
       oConnection = cHTTPConnection.foConnectTo(
-        sHostName = oSelf.__oServerBaseURL.sHostName,
+        sHostname = oSelf.__oServerBaseURL.sHostname,
         uPort = oSelf.__oServerBaseURL.uPort,
         oSSLContext = oSelf.__oSSLContext if not bNoSSLNegotiation else None,
         nConnectTimeoutInSeconds = nConnectTimeoutInSeconds,
-        bCheckHostName = bCheckHostName,
+        bCheckHostname = bCheckHostname,
       );
       if not oConnection:
         return oSelf.fxExitFunctionOutput(None, "Connection closed while negotiating secure connection");

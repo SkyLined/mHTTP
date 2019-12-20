@@ -141,11 +141,11 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
     oURL,
     sMethod = None, sHTTPVersion = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
-    bCheckHostName = None,
+    bCheckHostname = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname);
     try:
-      (oRequest, oResponse) = oSelf.ftoGetRequestAndResponseForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      (oRequest, oResponse) = oSelf.ftoGetRequestAndResponseForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname);
       return oSelf.fxExitFunctionOutput(oResponse);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -155,12 +155,12 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
     oURL,
     sMethod = None, sHTTPVersion = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
-    bCheckHostName = None,
+    bCheckHostname = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname);
     try:
       oRequest = oSelf.foGetRequestForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks);
-      oResponse = oSelf.foGetResponseForRequestAndURL(oRequest, oURL, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      oResponse = oSelf.foGetResponseForRequestAndURL(oRequest, oURL, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname);
       return oSelf.fxExitFunctionOutput((oRequest, oResponse));
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -182,7 +182,7 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
         asBodyChunks = asBodyChunks,
       );
       if not oRequest.oHTTPHeaders.fbHasValue("Host"):
-        oRequest.oHTTPHeaders.fbSet("Host", oURL.sHostNameAndPort);
+        oRequest.oHTTPHeaders.fbSet("Host", oURL.sHostnameAndPort);
       if not oRequest.oHTTPHeaders.fbHasValue("Accept-Encoding"):
         oRequest.oHTTPHeaders.fbSet("Accept-Encoding", ", ".join(oRequest.asSupportedCompressionTypes));
       return oSelf.fxExitFunctionOutput(oRequest);
@@ -193,16 +193,16 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
   def foGetResponseForRequestAndURL(oSelf,
     oRequest, oURL,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
-    bCheckHostName = None,
+    bCheckHostname = None,
   ):
-    oSelf.fEnterFunctionOutput(oRequest = oRequest, oURL = oURL, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oRequest = oRequest, oURL = oURL, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname);
     try:
       if nConnectTimeoutInSeconds is None:
         nConnectTimeoutInSeconds = oSelf.nDefaultConnectTimeoutInSeconds;
       if nTransactionTimeoutInSeconds is None:
         nTransactionTimeoutInSeconds = oSelf.nDefaultTransactionTimeoutInSeconds;
       oConnectionsToServerPool = oSelf.foGetConnectionsToServerPoolForURL(oURL);
-      oResponse = oConnectionsToServerPool.foGetResponseForRequest(oRequest, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      oResponse = oConnectionsToServerPool.foGetResponseForRequest(oRequest, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname);
       return oSelf.fxExitFunctionOutput(oResponse);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -222,7 +222,7 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
         if oURL.bSecure:
           assert oSelf.__oCertificateStore, \
               "Making secure connections requires a certificate store.";
-          oSSLContext = oSelf.__oCertificateStore.foGetSSLContextForClientWithHostName(oURL.sHostName);
+          oSSLContext = oSelf.__oCertificateStore.foGetSSLContextForClientWithHostname(oURL.sHostname);
         else:
           oSSLContext = None;
         oConnectionsToServerPool = cHTTPConnectionsToServerPool(
@@ -244,7 +244,7 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def foGetConnectionAndStartTransaction(oSelf, oURL, nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None, bCheckHostName = None, bNoSSLNegotiation = None):
+  def foGetConnectionAndStartTransaction(oSelf, oURL, nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None, bCheckHostname = None, bNoSSLNegotiation = None):
     oSelf.fEnterFunctionOutput(oURL = oURL);
     try:
       if nConnectTimeoutInSeconds is None:
@@ -252,7 +252,7 @@ class cHTTPClient(cWithCallbacks, cWithDebugOutput):
       if nTransactionTimeoutInSeconds is None:
         nTransactionTimeoutInSeconds = oSelf.nDefaultTransactionTimeoutInSeconds;
       oConnectionsToServerPool = oSelf.foGetConnectionsToServerPoolForURL(oURL);
-      oConnection = oConnectionsToServerPool.foGetConnectionAndStartTransaction(nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName, bNoSSLNegotiation);
+      oConnection = oConnectionsToServerPool.foGetConnectionAndStartTransaction(nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname, bNoSSLNegotiation);
       return oSelf.fxExitFunctionOutput(oConnection);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);

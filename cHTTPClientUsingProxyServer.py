@@ -26,7 +26,7 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
     if nDefaultTransactionTimeoutInSeconds is not None:
       oSelf.nDefaultTransactionTimeoutInSeconds = nDefaultTransactionTimeoutInSeconds;
 
-    oSelf.__oProxyServerSSLContext = oCertificateStore.foGetSSLContextForClientWithHostName(oProxyServerURL.sHostName) if oProxyServerURL.bSecure else None;
+    oSelf.__oProxyServerSSLContext = oCertificateStore.foGetSSLContextForClientWithHostname(oProxyServerURL.sHostname) if oProxyServerURL.bSecure else None;
     
     oSelf.__oConnectionsAvailableLock = cLock("%s.__oConnectionsAvailableLock" % oSelf.__class__.__name__, uSize = oSelf.__uMaxConnectionsToServer);
     oSelf.__oConnectionsLock = cLock("%s.__oConnectionsLock" % oSelf.__class__.__name__);
@@ -104,11 +104,11 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
     oURL,
     sMethod = None, sHTTPVersion = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
-    bCheckHostName = None,
+    bCheckHostname = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname);
     try:
-      (oRequest, oResponse) = oSelf.ftoGetRequestAndResponseForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      (oRequest, oResponse) = oSelf.ftoGetRequestAndResponseForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname);
       return oSelf.fxExitFunctionOutput(oResponse);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -118,12 +118,12 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
     oURL,
     sMethod = None, sHTTPVersion = None, oHTTPHeaders = None, sBody = None, sData = None, asBodyChunks = None,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
-    bCheckHostName = None,
+    bCheckHostname = None,
   ):
-    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oURL = oURL, sMethod = sMethod, sHTTPVersion = sHTTPVersion, oHTTPHeaders = oHTTPHeaders, sBody = sBody, sData = sData, asBodyChunks = asBodyChunks, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname);
     try:
       oRequest = oSelf.foGetRequestForURL(oURL, sMethod, sHTTPVersion, oHTTPHeaders, sBody, sData, asBodyChunks);
-      oResponse = oSelf.foGetResponseForRequestAndURL(oRequest, oURL, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      oResponse = oSelf.foGetResponseForRequestAndURL(oRequest, oURL, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname);
       return oSelf.fxExitFunctionOutput((oRequest, oResponse));
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -152,7 +152,7 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
         asBodyChunks = asBodyChunks,
       );
       if not oRequest.oHTTPHeaders.fbHasValue("Host"):
-        oRequest.oHTTPHeaders.fbSet("Host", oURL.sHostNameAndPort);
+        oRequest.oHTTPHeaders.fbSet("Host", oURL.sHostnameAndPort);
       return oSelf.fxExitFunctionOutput(oRequest);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
@@ -161,11 +161,11 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
   def foGetResponseForRequestAndURL(oSelf,
     oRequest, oURL,
     nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None,
-    bCheckHostName = None,
+    bCheckHostname = None,
   ):
-    oSelf.fEnterFunctionOutput(oRequest = oRequest, oURL = oURL, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName);
+    oSelf.fEnterFunctionOutput(oRequest = oRequest, oURL = oURL, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname);
     try:
-      oConnection = oSelf.foGetConnectionAndStartTransaction(oURL, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostName);
+      oConnection = oSelf.foGetConnectionAndStartTransaction(oURL, nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bCheckHostname);
       if oConnection is None:
         return oSelf.fxExitFunctionOutput(None, "No connections available; request not sent");
       oResponse = oConnection.foGetResponseForRequest(oRequest);
@@ -179,8 +179,8 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
       oSelf.fxRaiseExceptionOutput(oException);
       raise;
   
-  def foGetConnectionAndStartTransaction(oSelf, oURL, nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None, bCheckHostName = None, bNoSSLNegotiation = None):
-    oSelf.fEnterFunctionOutput(oURL = oURL, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostName = bCheckHostName, bNoSSLNegotiation = bNoSSLNegotiation);
+  def foGetConnectionAndStartTransaction(oSelf, oURL, nConnectTimeoutInSeconds = None, nTransactionTimeoutInSeconds = None, bCheckHostname = None, bNoSSLNegotiation = None):
+    oSelf.fEnterFunctionOutput(oURL = oURL, nConnectTimeoutInSeconds = nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds, bCheckHostname = bCheckHostname, bNoSSLNegotiation = bNoSSLNegotiation);
     try:
       if oSelf.__bStopping:
         return oSelf.fxExitFunctionOutput(None, "Stopping");
@@ -199,14 +199,22 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
       # Calculate how much time there is left to create a connection in case we have to do so.
       nRemainingConnectTimeoutInSeconds = nMaxEndConnectTime - time.clock();
       if not oURL.bSecure:
-        assert not bCheckHostName, \
+        assert not bCheckHostname, \
             "Cannot check hostname on non-secure connections";
-        oConnection = oSelf.__foGetNonSecureConnectionAndStartTransaction(nRemainingConnectTimeoutInSeconds, nTransactionTimeoutInSeconds);
+        oConnection = oSelf.__foGetNonSecureConnectionAndStartTransaction(
+          nRemainingConnectTimeoutInSeconds,
+          nTransactionTimeoutInSeconds
+        );
       else:
-        oConnection = oSelf.__foGetSecureConnectionToServerAndStartTransaction(oURL.oBase, nRemainingConnectTimeoutInSeconds, nTransactionTimeoutInSeconds, bNoSSLNegotiation);
-        if oConnection and bCheckHostName:
+        oConnection = oSelf.__foGetSecureConnectionToServerAndStartTransaction(
+          oURL.oBase,
+          nRemainingConnectTimeoutInSeconds,
+          nTransactionTimeoutInSeconds,
+          bNoSSLNegotiation
+        );
+        if oConnection and bCheckHostname:
           try:
-            oConnection.fCheckHostName();
+            oConnection.fCheckHostname();
           except oException:
             oConnection.fClose();
             oSelf.__oConnectionsAvailableLock.fRelease();
@@ -233,7 +241,10 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
           # No existing connection is available, see if we can create a new one:
           if len(oSelf.__faoGetAllConnections()) < oSelf.__uMaxConnectionsToServer:
             nRemainingConnectTimeoutInSeconds = nMaxEndConnectTime - time.clock();
-            oConnection = oSelf.__foCreateNewConnectionToProxyAndStartTransaction(nRemainingConnectTimeoutInSeconds, nTransactionTimeoutInSeconds);
+            oConnection = oSelf.__foCreateNewConnectionToProxyAndStartTransaction(
+              nRemainingConnectTimeoutInSeconds,
+              nTransactionTimeoutInSeconds
+            );
             if not oConnection:
               return oSelf.fxExitFunctionOutput(None, "None (timeout creating a new connection).");
             return oSelf.fxExitFunctionOutput(oConnection, "New");
@@ -263,7 +274,7 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
       # Create a new socket and return that.
       oSelf.fStatusOutput("Connecting to %s..." % oSelf.__oProxyServerURL);
       oConnection = cHTTPConnection.foConnectTo(
-        sHostName = oSelf.__oProxyServerURL.sHostName,
+        sHostname = oSelf.__oProxyServerURL.sHostname,
         uPort = oSelf.__oProxyServerURL.uPort,
         oSSLContext = oSelf.__oProxyServerSSLContext,
         nConnectTimeoutInSeconds = nConnectTimeoutInSeconds,
@@ -303,7 +314,10 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
         # See if we can create a new connection:
         if len(oSelf.__faoGetAllConnections()) < oSelf.__uMaxConnectionsToServer:
           nRemainingConnectTimeoutInSeconds = nMaxEndConnectTime - time.clock();
-          oConnectionToProxy = oSelf.__foCreateNewConnectionToProxyAndStartTransaction(nConnectTimeoutInSeconds, nTransactionTimeoutInSeconds);
+          oConnectionToProxy = oSelf.__foCreateNewConnectionToProxyAndStartTransaction(
+            nRemainingConnectTimeoutInSeconds,
+            nTransactionTimeoutInSeconds
+          );
         else:
           # We do not have and cannot create a secure connection to the server; return.
           return oSelf.fxExitFunctionOutput(None, "Connection to the server cannot be created");
@@ -334,7 +348,7 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
         return oSelf.fxExitFunctionOutput(None, "The proxy did not accept our CONNECT request.");
       if not bNoSSLNegotiation:
         # Wrap the connection in SSL.
-        oSSLContext = oSelf.__oCertificateStore.foGetSSLContextForClientWithHostName(oServerBaseURL.sHostName);
+        oSSLContext = oSelf.__oCertificateStore.foGetSSLContextForClientWithHostname(oServerBaseURL.sHostname);
         try:
           oConnectionToProxy.fWrapInSSLContext(oSSLContext);
         except cHTTPConnection.cTransactionTimeoutException:
@@ -345,7 +359,7 @@ class cHTTPClientUsingProxyServer(cWithCallbacks, cWithDebugOutput):
           return oSelf.fxExitFunctionOutput(None, "Could not negotiate a secure connection with the client; is SSL pinning enabled? (error: %s)" % repr(oException));
       # Remember that we now have this secure connection to the server
       oSelf.__doSecureConnectionToServer_by_sProtocolHostPort[oServerBaseURL.sBase] = oConnectionToProxy;
-      oSelf.fFireCallbacks("secure connection established", oConnectionToProxy, oServerBaseURL.sHostName);
+      oSelf.fFireCallbacks("secure connection established", oConnectionToProxy, oServerBaseURL.sHostname);
       # and start using it...
       return oSelf.fxExitFunctionOutput(oConnectionToProxy);
     except Exception as oException:

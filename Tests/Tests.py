@@ -102,8 +102,8 @@ try:
     oOutOfBandDataURL = cURL.foFromString("http://localhost:28084/out-of-band-data");
     oInvalidHTTPMessageURL = cURL.foFromString("http://localhost:28085/invalid-response");
     # Generate a valid SSL certificate and key for "localhost" and load it into the certificate store.
-    fDebugOutput(("**** Getting a certificate for %s " % oLocalSecureURL.sHostName).ljust(160, "*"));
-    oCertificateAuthority.foGenerateSSLContextForServerWithHostName(oLocalSecureURL.sHostName);
+    fDebugOutput(("**** Getting a certificate for %s " % oLocalSecureURL.sHostname).ljust(160, "*"));
+    oCertificateAuthority.foGenerateSSLContextForServerWithHostname(oLocalSecureURL.sHostname);
     
     fDebugOutput("@" * 160);
     fDebugOutput(" Test HTTP client");

@@ -27,11 +27,11 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
   nDefaultSecureConnectionTimeoutInSeconds = None;
   nDefaultSecureConnectionIdleTimeoutInSeconds = 20;
   
-  def __init__(oSelf, sHostName = None, uPort = None, oServerSSLContext = None, oCertificateStore = None, oChainedProxyURL = None, oInterceptSSLConnectionsCertificateAuthority = None, nTransactionTimeoutInSeconds = None, bCheckHostName = None, nSecureConnectionTimeoutInSeconds = None, nSecureConnectionIdleTimeoutInSeconds = None, uMaxConnectionsToServer = None, bLocal = True):
+  def __init__(oSelf, sHostname = None, uPort = None, oServerSSLContext = None, oCertificateStore = None, oChainedProxyURL = None, oInterceptSSLConnectionsCertificateAuthority = None, nTransactionTimeoutInSeconds = None, bCheckHostname = None, nSecureConnectionTimeoutInSeconds = None, nSecureConnectionIdleTimeoutInSeconds = None, uMaxConnectionsToServer = None, bLocal = True):
     oSelf.__oCertificateStore = oCertificateStore;
     oSelf.__oInterceptSSLConnectionsCertificateAuthority = oInterceptSSLConnectionsCertificateAuthority;
     oSelf.__nTransactionTimeoutInSeconds = nTransactionTimeoutInSeconds;
-    oSelf.__bCheckHostName = bCheckHostName;
+    oSelf.__bCheckHostname = bCheckHostname;
     oSelf.__nSecureConnectionTimeoutInSeconds = nSecureConnectionTimeoutInSeconds if nSecureConnectionTimeoutInSeconds is not None else oSelf.nDefaultSecureConnectionTimeoutInSeconds;
     oSelf.__nSecureConnectionIdleTimeoutInSeconds = nSecureConnectionIdleTimeoutInSeconds if nSecureConnectionIdleTimeoutInSeconds is not None else oSelf.nDefaultSecureConnectionIdleTimeoutInSeconds;
     
@@ -55,7 +55,7 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
       "terminated"
     );
     
-    oSelf.oHTTPServer = cHTTPServer(sHostName, uPort, oServerSSLContext, bLocal = bLocal);
+    oSelf.oHTTPServer = cHTTPServer(sHostname, uPort, oServerSSLContext, bLocal = bLocal);
     oSelf.oHTTPServer.fAddCallback("started",
         lambda oHTTPServer: oSelf.fFireCallbacks("started"));
     oSelf.oHTTPServer.fAddCallback("new connection",
@@ -326,7 +326,7 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
           sBody = oRequest.sBody if not oRequest.bChunked else None,
           asBodyChunks = oRequest.asBodyChunks if oRequest.bChunked else None,
           nTransactionTimeoutInSeconds = oSelf.__nTransactionTimeoutInSeconds,
-          bCheckHostName = oSelf.__bCheckHostName,
+          bCheckHostname = oSelf.__bCheckHostname,
         );
       except oSelf.oHTTPClient.cConnectTimeoutException:
         oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 502, "The server did not respond before the request timed out.");
@@ -359,18 +359,25 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
       if oRequest.sMethod.upper() == "CONNECT":
         # Check the sanity of the request.
         sHostHeader = oRequest.oHTTPHeaders.fsGet("Host");
-        sLowerRequestURI = oRequest.sURL.lower();
-        if not sHostHeader or sHostHeader.strip().lower() != sLowerRequestURI:
+        if not sHostHeader or sHostHeader.strip().lower() != oRequest.sURL.lower():
           oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, "The requested URL and host header did not match.");
           return oSelf.fxExitFunctionOutput(oResponse, "URL %s and host header %s mismatched" % (repr(oRequest.sURL), repr(sHostHeader)));
         # Parse the request URI to construct a URL for the server:
-        try:
-          sServerHostName, sServerPort = sLowerRequestURI.split(":");
-          uServerPort = long(sServerPort);
-        except:
+        oRequestConnectHostnameAndPortMatch = re.match(
+          r"^"                        # {
+          r"("                        #   (either {
+            r"\d{1,3}(?:.\d{1,3}){3}"  #     IP v4
+          r"|"                        #   } or {
+            r"(?:[0-9\-]*[a-z\-][a-z0-9\-]*\.)*[0-9\-]*[a-z\-][a-z0-9\-]+" # DNS
+          r")"                        #   })
+          r"\:(\d+)"                  #   ":" (port)
+          r"$",                       # }
+          oRequest.sURL
+        );
+        if not oRequestConnectHostnameAndPortMatch:
           oResponse = foGetErrorResponse(oRequest.sHTTPVersion, 400, "The requested URL was not valid.");
           return oSelf.fxExitFunctionOutput(oResponse, "Invalid URL %s" % repr(oRequest.sURL));
-        oServerURL = cURL.foFromString("https://%s:%d" % (sServerHostName, uServerPort));
+        oServerURL = cURL.foFromString("https://%s" % oRequest.sURL);
         if oSelf.__oInterceptSSLConnectionsCertificateAuthority:
           # We will be intercepting the requests, so we won't make a connection to the server immediately. We will
           # send a "200 Ok" response and start a thread that will handle the connection, but we will not simply pipe
@@ -387,7 +394,7 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
             oURL = oServerURL,
             nConnectTimeoutInSeconds = oSelf.oHTTPClient.nDefaultConnectTimeoutInSeconds,
             nTransactionTimeoutInSeconds = None,
-            bCheckHostName = oSelf.__bCheckHostName,
+            bCheckHostname = oSelf.__bCheckHostname,
             # Normally the client is going to do the SSL negotiation, but if we are intercepting SSL connections, we will
             bNoSSLNegotiation = True,
           );
@@ -439,8 +446,8 @@ class cHTTPClientProxyServer(cWithCallbacks, cWithDebugOutput):
         # connection, forward it to the server to get a response using the same code as the normal proxy, and then
         # send the response back to the client.
         oSelf.fStatusOutput("Intercepting secure connection to server %s for client %s." % (oServerURL.sBase, oConnectionFromClient.fsToString()), bVerbose = False);
-        oSelf.fStatusOutput("Generating SSL certificate for %s..." % oServerURL.sHostName);
-        oSSLContext = oSelf.__oInterceptSSLConnectionsCertificateAuthority.foGenerateSSLContextForServerWithHostName(oServerURL.sHostName);
+        oSelf.fStatusOutput("Generating SSL certificate for %s..." % oServerURL.sHostname);
+        oSSLContext = oSelf.__oInterceptSSLConnectionsCertificateAuthority.foGenerateSSLContextForServerWithHostname(oServerURL.sHostname);
         oSelf.fStatusOutput("Negotiating secure socket for %s..." % oConnectionFromClient.fsToString());
         if not oConnectionFromClient.fbStartTransaction(oSelf.__nSecureConnectionIdleTimeoutInSeconds, bWait = True):
           return oSelf.fExitFunctionOutput("Cannot start a transaction on the client socket");

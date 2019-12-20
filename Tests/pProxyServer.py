@@ -15,7 +15,7 @@ oProxyServerSSLContext = None;
 oProxyServerURL = cURL.foFromString("http://localhost:8080");
 oCertificateStore = cCertificateStore();
 oProxyServer = cHTTPClientProxyServer(
-  oProxyServerURL.sHostName, oProxyServerURL.uPort, oProxyServerSSLContext,
+  oProxyServerURL.sHostname, oProxyServerURL.uPort, oProxyServerSSLContext,
   oCertificateStore,
   bInterceptSSLConnections = True,
 );

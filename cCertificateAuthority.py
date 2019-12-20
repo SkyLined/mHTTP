@@ -7,7 +7,7 @@ gsMainFolderPath = os.path.dirname(__file__);
 class cCertificateAuthority(object):
   __sOpenSSLBinaryPath = os.path.join(gsMainFolderPath, "OpenSSL", "OpenSSL.exe");
 
-  oCertificateFilesLock = cLock("foGenerateSSLContextForServerWithHostName.py/goCertificateFilesLock");
+  oCertificateFilesLock = cLock("foGenerateSSLContextForServerWithHostname.py/goCertificateFilesLock");
   def __init__(oSelf, sBaseFolderPath):
     oSelf.__sBaseFolderPath = sBaseFolderPath;
     oSelf.__sOpenSSLConfigFilesFolderPath = os.path.join(sBaseFolderPath, "Config");
@@ -30,24 +30,24 @@ class cCertificateAuthority(object):
       print oException.output;
       raise;
 
-  def foGetSSLContextForServerWithHostName(oSelf, sHostName):
-    sKeyFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.key.pem" % sHostName);
-    sCertificateFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.cert.pem" % sHostName);
+  def foGetSSLContextForServerWithHostname(oSelf, sHostname):
+    sKeyFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.key.pem" % sHostname);
+    sCertificateFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.cert.pem" % sHostname);
     oSelf.oCertificateFilesLock.fAcquire();
     try:
       if not os.path.isfile(sKeyFilePath) or not os.path.isfile(sCertificateFilePath):
         return None;
     finally:
       oSelf.oCertificateFilesLock.fRelease();
-    return cSSLContext.foForServerWithHostNameAndKeyAndCertificateFilePath(sHostName, sKeyFilePath, sCertificateFilePath);
+    return cSSLContext.foForServerWithHostnameAndKeyAndCertificateFilePath(sHostname, sKeyFilePath, sCertificateFilePath);
 
-  def foGenerateSSLContextForServerWithHostName(oSelf, sHostName):
-    sKeyFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.key.pem" % sHostName);
-    sCertificateFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.cert.pem" % sHostName);
+  def foGenerateSSLContextForServerWithHostname(oSelf, sHostname):
+    sKeyFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.key.pem" % sHostname);
+    sCertificateFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.cert.pem" % sHostname);
     oSelf.oCertificateFilesLock.fAcquire();
     try:
       if not os.path.isfile(sKeyFilePath) or not os.path.isfile(sCertificateFilePath):
-        sCertificateSigningRequestFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.csr.pem" % sHostName);
+        sCertificateSigningRequestFilePath = os.path.join(oSelf.__sGeneratedCertificatesFolderPath, "%s.csr.pem" % sHostname);
         oSelf.__fExecuteOpenSSL(
           "req",
           "-config", os.path.join(oSelf.__sOpenSSLConfigFilesFolderPath, "intermediate.conf"),
@@ -56,7 +56,7 @@ class cCertificateAuthority(object):
           "-newkey", "rsa:1024",
           "-keyout", sKeyFilePath,
           "-out", sCertificateSigningRequestFilePath,
-          "-subj", "/C=NL/O=SkyLined/CN=%s" % sHostName,
+          "-subj", "/C=NL/O=SkyLined/CN=%s" % sHostname,
         );
         assert os.path.isfile(sCertificateSigningRequestFilePath), \
             "wut";
@@ -74,4 +74,4 @@ class cCertificateAuthority(object):
         os.remove(sCertificateSigningRequestFilePath);
     finally:
       oSelf.oCertificateFilesLock.fRelease();
-    return cSSLContext.foForServerWithHostNameAndKeyAndCertificateFilePath(sHostName, sKeyFilePath, sCertificateFilePath);
+    return cSSLContext.foForServerWithHostnameAndKeyAndCertificateFilePath(sHostname, sKeyFilePath, sCertificateFilePath);
