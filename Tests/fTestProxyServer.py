@@ -18,7 +18,7 @@ def fTestProxyServer(oProxyServerURL, oCertificateStore, oExampleURL, oSecureExa
   fDebugOutput(repr(oHTTPClient.foGetResponseForURL(oExampleURL).fsSerialize()));
   aoNonSecureConnections = oHTTPClient._cHTTPClientUsingProxyServer__aoNonSecureConnections;
   assert len(aoNonSecureConnections) == 1, \
-      "Expected one connection to the proxy, but found %d connections" % (oExampleURL, len(aoConnections));
+      "Expected one connection to the proxy, but found %d connections" % len(aoNonSecureConnections);
   doSecureConnectionToServer_by_sProtocolHostPort = oHTTPClient._cHTTPClientUsingProxyServer__doSecureConnectionToServer_by_sProtocolHostPort;
   asSecureConnectionTargets = doSecureConnectionToServer_by_sProtocolHostPort.keys();
   assert len(asSecureConnectionTargets) == 0, \
