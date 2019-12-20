@@ -1,4 +1,4 @@
-import socket, ssl;
+import socket;
 
 def fbSocketExceptionIsClosedConnection(oException):
   return (

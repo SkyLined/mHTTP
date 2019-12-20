@@ -1,6 +1,6 @@
 import os, subprocess;
 from .cSSLContext import cSSLContext;
-from mMultiThreading import cLock, cWithCallbacks;
+from mMultiThreading import cLock;
 
 gsMainFolderPath = os.path.dirname(__file__);
 

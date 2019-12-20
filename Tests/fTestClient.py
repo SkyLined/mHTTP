@@ -1,4 +1,4 @@
-import socket, time;
+import socket;
 from mDebugOutput import fDebugOutput;
 import mHTTP;
 from mMultiThreading import cThread;

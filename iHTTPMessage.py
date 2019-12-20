@@ -1,4 +1,4 @@
-import base64, gzip, StringIO, urllib, zlib;
+import base64, zlib;
 try:
   from .cBrotli import cBrotli;
 except:

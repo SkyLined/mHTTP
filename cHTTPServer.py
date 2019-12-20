@@ -1,4 +1,4 @@
-import os, socket, ssl, time;
+import socket;
 from .cHTTPConnection import cHTTPConnection;
 from .cHTTPResponse import cHTTPResponse;
 from .cSSLContext import cSSLContext;

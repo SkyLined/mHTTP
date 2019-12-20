@@ -46,9 +46,6 @@ asUnexpectedModules = list(set([
 assert len(asUnexpectedModules) == 0, \
       "Module(s) %s was/were unexpectedly loaded!" % ", ".join(sorted(asUnexpectedModules));
 
-#Import the test subject
-import mHTTP;
-
 # Restore the search path
 sys.path = asOriginalSysPath;
 

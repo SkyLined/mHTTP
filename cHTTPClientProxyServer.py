@@ -1,3 +1,4 @@
+import re;
 from .cBufferedSocket import cBufferedSocket;
 from .cHTTPServer import cHTTPServer;
 from .cHTTPClient import cHTTPClient;

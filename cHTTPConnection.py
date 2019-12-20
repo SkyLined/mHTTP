@@ -1,11 +1,10 @@
-import json, re;
+import re;
 from .cBufferedSocket import cBufferedSocket;
 from .cHTTPHeaders import cHTTPHeaders;
 from .cHTTPRequest import cHTTPRequest;
 from .cHTTPResponse import cHTTPResponse;
 from .cProtocolException import cProtocolException;
 from .iHTTPMessage import iHTTPMessage;
-from mMultiThreading import cWithCallbacks;
 
 gnDefaultReadHTTPMessageTimeoutInSeconds = 10;
 guDefaultMaxReasonPhraseSize = 1000;

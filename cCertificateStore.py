@@ -1,4 +1,3 @@
-import os;
 from mDebugOutput import cWithDebugOutput;
 from .cSSLContext import cSSLContext;
 

@@ -1,4 +1,4 @@
-import socket, ssl, time;
+import socket, time;
 from .cConnectionException import cConnectionException;
 from .fbSocketExceptionIsClosedConnection import fbSocketExceptionIsClosedConnection;
 from .fbSocketExceptionIsTimeout import fbSocketExceptionIsTimeout;
