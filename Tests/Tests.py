@@ -49,7 +49,7 @@ assert len(asUnexpectedModules) == 0, \
 # Restore the search path
 sys.path = asOriginalSysPath;
 
-from mDebugOutput import fDebugOutput, fFatalExceptionOutput, fShowFileDebugOutputForClass, fShowAllDebugOutput;
+from mDebugOutput import fDebugOutput, fFatalExceptionOutput, fShowFileDebugOutputForClass;
 try:
   from mHTTP import *;
   from fTestClient import fTestClient;
@@ -57,7 +57,6 @@ try:
   from fTestProxyServer import fTestProxyServer;
   
   from mHTTP.cHTTPConnectionsToServerPool import cHTTPConnectionsToServerPool;
-  from mHTTP.cSSLContext import cSSLContext;
   from mHTTP.iHTTPMessage import iHTTPMessage;
   from mMultiThreading import cLock;
 
