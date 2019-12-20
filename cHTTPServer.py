@@ -161,11 +161,11 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
           oSelf.fStatusOutput("Closing server socket...");
           try:
             oSelf.__oServerSocket.shutdown();
-          except:
+          except Exception:
             pass;
           try:
             oSelf.__oServerSocket.close();
-          except:
+          except Exception:
             pass;
           oSelf.__bServerSocketClosed = True;
         aoOpenConnections = oSelf.__aoOpenConnections[:];
@@ -198,7 +198,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
           pass;
         try:
           oSelf.__oServerSocket.close();
-        except:
+        except Exception:
           pass;
         oSelf.__bServerSocketClosed = True;
         if not oSelf.__bStarted:
@@ -246,7 +246,6 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
   def __fMain(oSelf):
     oSelf.fEnterFunctionOutput();
     try:
-      oThread = cThread.foGetCurrent();
       oSelf.fFireCallbacks("started");
       oSelf.fStatusOutput("Waiting for first incoming connection...");
       while not oSelf.__bServerSocketClosed and not oSelf.__bStopping:
@@ -285,7 +284,7 @@ class cHTTPServer(cWithCallbacks, cWithDebugOutput):
           pass;
         try: 
           oSelf.__oServerSocket.close();
-        except:
+        except Exception:
           pass;
         oSelf.__bServerSocketClosed = True;
       oSelf.fExitFunctionOutput();
