@@ -349,11 +349,10 @@ class cHTTPConnection(cBufferedSocket):
     try:
       oHTTPHeaders = cHTTPHeaders();
       sLastHeaderName = None;
-      uMaxHeaderLineSize = uMaxHeaderNameSize  + uMaxHeaderValueSize;
       while 1:
         oSelf.fStatusOutput("Reading header line...");
         try:
-          sLine = oSelf.fsReadUntil("\r\n", uMaxNumberOfBytes = uMaxHeaderLineSize + 2);
+          sLine = oSelf.fsReadUntil("\r\n", uMaxNumberOfBytes = uMaxHeaderLineSize);
         except cBufferedSocket.cTooMuchDataException as oException:
           sLine = oSelf.fsReadBufferedData();
           raise iHTTPMessage.cInvalidHTTPMessageException(
