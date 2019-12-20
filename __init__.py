@@ -36,6 +36,7 @@ from .cCertificateAuthority import cCertificateAuthority;
 from .cCertificateStore import cCertificateStore;
 from .cHTTPClient import cHTTPClient;
 from .cHTTPClientProxyServer import cHTTPClientProxyServer;
+#from .cHTTPClientUsingPAC import cHTTPClientUsingPAC;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
 from .cHTTPHeaders import cHTTPHeaders;
 from .cHTTPRequest import cHTTPRequest;
@@ -64,11 +65,12 @@ cOutOfBandDataException = cHTTPConnection.cOutOfBandDataException;
 from .iHTTPMessage import iHTTPMessage;
 cInvalidHTTPMessageException = iHTTPMessage.cInvalidHTTPMessageException;
 
-all = [
+__all__ = [
   "cCertificateAuthority",
   "cCertificateStore",
   "cHTTPClient",
   "cHTTPClientProxyServer",
+#  "cHTTPClientUsingPAC",
   "cHTTPClientUsingProxyServer",
   "cHTTPHeaders",
   "cHTTPRequest",
