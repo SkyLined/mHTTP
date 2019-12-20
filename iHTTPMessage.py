@@ -1,7 +1,7 @@
 import base64, zlib;
 try:
   from .cBrotli import cBrotli;
-except:
+except Exception:
   cBrotli = None;
 from mDebugOutput import cWithDebugOutput;
 from .cHTTPHeaders import cHTTPHeaders;
