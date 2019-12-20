@@ -395,7 +395,6 @@ class cBufferedSocket(cWithCallbacks, cWithDebugOutput):
           );
       sData = oSelf.__sBuffer;
       oSelf.__sBuffer = "";
-      bMax = False;
       return oSelf.fxExitFunctionOutput(sData);
     except Exception as oException:
       oSelf.fxRaiseExceptionOutput(oException);
