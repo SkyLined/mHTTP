@@ -52,6 +52,7 @@ sys.path = asOriginalSysPath;
 from mDebugOutput import fDebugOutput, fFatalExceptionOutput, fShowFileDebugOutputForClass;
 try:
   from mHTTP import *;
+  from fTestURL import fTestURL;
   from fTestClient import fTestClient;
   from fTestServer import fTestServer;
   from fTestProxyServer import fTestProxyServer;
@@ -104,6 +105,10 @@ try:
     fDebugOutput(("**** Getting a certificate for %s " % oLocalSecureURL.sHostname).ljust(160, "*"));
     oCertificateAuthority.foGenerateSSLContextForServerWithHostname(oLocalSecureURL.sHostname);
     
+    fDebugOutput("@" * 160);
+    fDebugOutput(" Test URL");
+    fDebugOutput("@" * 160);
+    fTestURL();
     fDebugOutput("@" * 160);
     fDebugOutput(" Test HTTP client");
     fDebugOutput("@" * 160);
