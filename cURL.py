@@ -11,6 +11,118 @@ gdtxDefaultPortAndSecure_by_sProtocol = {
 
 UNSPECIFIED = {};
 
+srIPv4Byte = ( # No support for octal encoding!
+  "(?:"
+    "25[0-5]"                        # 250-255
+  "|"
+    "2[0-4][0-9]"                    # 200-249
+  "|"
+    "[1][0-9]{2}"                    # 100-199
+  "|"
+    "[1-9][0-9]"                     # 10-99
+  "|"
+    "[0-9]"                          # 0-9
+  ")"
+);
+srIPv4Address = "(?:" + srIPv4Byte + r"\." "){3}" + srIPv4Byte; # 0.1.2.3
+
+srIPv6Word = "[0-9a-fA-F]{1,4}";
+srIPv6PreWord = "(?:" + srIPv6Word + r"\:" ")";
+srIPv6PostWord = "(?:" r"\:" + srIPv6Word + ")";
+srIPv6Address = (
+  r"\[" # IPv6 addresses are enclosed in "[" and "]" in URLs to avoid cofusion between "host:port" separator and "Word:word" separator
+  "(?:" 
+    + srIPv6Word              + srIPv6PostWord + "{7}"    # A:B:C:D:E:F:G:H
+  "|"
+    r"\:"                     + srIPv6PostWord + "{1,7}"  # ::B:C:D:E:F:G:H ... ::H
+  "|"
+    r"\:\:"                                               # ::
+  "|"
+    + srIPv6PreWord           + srIPv6PostWord + "{1,6}"  # A::C:D:E:F:G:H ... A::H
+  "|"
+    + srIPv6PreWord + "{2}"   + srIPv6PostWord + "{1,5}"  # A:B::D:E:F:G:H ... A:B::H
+  "|"
+    + srIPv6PreWord + "{3}"   + srIPv6PostWord + "{1,4}"  # A:B:C::E:F:G:H ... A:B:C::H
+  "|"
+    + srIPv6PreWord + "{4}"   + srIPv6PostWord + "{1,3}"  # A:B:C:D::F:G:H ... A:B:C:D::H
+  "|"
+    + srIPv6PreWord + "{5}"   + srIPv6PostWord + "{1,2}"  # A:B:C:D:E::G:H ... A:B:C:D:E::H
+  "|"
+    + srIPv6PreWord + "{6}"   + srIPv6PostWord +          # A:B:C:D:E:F::H
+  "|"
+    + srIPv6PreWord + "{0,7}" r"\:"                       # A:B:C:D:E:F:G:: ... A::
+  "|" # ----------------------------
+    "[Ff][Ee][89ab][0-9a-fA-F]" r"\:"     # (FE80-FEBF) ":" ... "%" local adapter
+    # same as above, only we have a static first word, so "::..." options do not exist and repeat counts are different
+    "(?:"
+      + srIPv6Word              + srIPv6PostWord + "{6}"    # FExx:B:C:D:E:F:G:H
+    "|"
+      r"\:"                     + srIPv6PostWord + "{0,6}"  # FExx::C:D:E:F:G:H ... FExx::H, FExx::
+    "|"
+      + srIPv6PreWord + "{1}"   + srIPv6PostWord + "{1,5}"  # FExx:B::D:E:F:G:H ... FExx:B::H
+    "|"
+      + srIPv6PreWord + "{2}"   + srIPv6PostWord + "{1,4}"  # FExx:B:C::E:F:G:H ... FExx:B:C::H
+    "|"
+      + srIPv6PreWord + "{3}"   + srIPv6PostWord + "{1,3}"  # FExx:B:C:D::F:G:H ... FExx:B:C:D::H
+    "|"
+      + srIPv6PreWord + "{4}"   + srIPv6PostWord + "{1,2}"  # FExx:B:C:D:E::G:H ... FExx:B:C:D:E::H
+    "|"
+      + srIPv6PreWord + "{5}"   + srIPv6PostWord +          # FExx:B:C:D:E:F::H
+    "|"
+      + srIPv6PreWord + "{0,6}" r"\:"                       # FExx:B:C:D:E:F:G:: ... FExx::
+    ")"                               #
+    r"\%25" "[0-9a-zA-Z]+"            #   % is hex encoded as %25!
+  "|" # ----------------------------
+    "(?:"                             # ::ffff:<IPv4>, ::ffff:0:<IPv4>, and 64:ff9b::<IPv4>
+      r"\:\:[Ff]{4}\:"                #
+    "|"                               #
+      r"\:\:[Ff]{4}\:0\:"             #
+    "|"                               #
+      r"64\:[Ff]{2}9[Bb]\:\:"         #
+    ")"                               #
+    + srIPv4Address +                 #
+  ")" r"\]"
+);
+srDNSName = (
+  r"[A-Za-z0-9]"            #     first char of hostname or lowest level domain name
+  r"(?:"                    #     optional {
+    r"[A-Za-z0-9\-]{0,61}"  #       second till second-to-last additional char of hostname or lowest level domain name
+    r"[A-Za-z0-9]"          #       last additional char of hostname or lowest level domain name
+  r")?"                     #     }
+  r"(?:"                    #     optional { (for fully qualified domain names)
+    r"\."                   #       "."
+    r"(?:"                  #       repeat {
+      r"[A-Za-z0-9]"        #         first char of intermediate level domain name
+      r"(?:"                #         optional {
+        r"[A-Za-z0-9\-]{0,61}" #        second till second-to-last additional char of intermediate level domain name
+        r"[A-Za-z0-9]"      #           last additional char of intermediate level domain name
+      r")?"                 #         }
+      r"\."                 #         "."
+    r")*"                   #       } any number of times
+    r"[A-Za-z]{2,}"         #       top level domain name
+  r")?"                     #     }
+);
+
+srProtocols = "|".join([re.escape(sProtocol) for sProtocol in gdtxDefaultPortAndSecure_by_sProtocol.keys()]);
+
+rURL = re.compile(
+  r"^"                        # {
+  r"(" + srProtocols + ")://" #   (protocol) "://"
+  r"("                        #   (either {
+    + srIPv4Address +         #     IP v4
+  r"|"                        #   } or {
+    + srIPv6Address +         #     IP v6
+  r"|"                        #   } or {
+    + srDNSName +             #     DNS name
+  r")"                        #   })
+  r"(?:" r"\:(\d+)" r")?"     #   ":" (port)
+  r"(\/[^#?]*)?"              #   optional { ("/" path) }
+  r"(?:\?([^#]*))?"           #   optional { "?" (query) }
+  r"(?:\#(.*))?"              #   optional { "#" (fragement) }
+  r"$",                       # }
+  re.I
+);
+
 class cURL(cWithDebugOutput):
   class cInvalidURLException(cException):
     pass;
@@ -21,26 +133,7 @@ class cURL(cWithDebugOutput):
       sURL = str(sURL);
     elif not isinstance(sURL, str):
       raise cURL.cInvalidURLException("Invalid URL", repr(sURL));
-    oURLMatch = re.match(
-      (
-        r"^"                        # {
-        r"(%s)://"                  #   (protocol) "://"
-        r"("                        #   (either {
-          r"\d{1,3}(?:.\d{1,3}){3}" #     IP v4
-        r"|"                        #   } or {
-          r"(?:[0-9\-]*[a-z\-][a-z0-9\-]*\.)*[0-9\-]*[a-z\-][a-z0-9\-]+" # DNS
-        r")"                        #   })
-        r"(?:" r"\:(\d+)" r")?"     #   ":" (port)
-        r"(\/[^#?]*)?"              #   optional { ("/" path) }
-        r"(?:\?([^#]*))?"           #   optional { "?" (query) }
-        r"(?:\#(.*))?"              #   optional { "#" (fragement) }
-        r"$"                        # }
-      ) % (
-        "|".join([re.escape(sProtocol) for sProtocol in gdtxDefaultPortAndSecure_by_sProtocol.keys()])
-      ),
-      sURL,
-      re.I
-    );
+    oURLMatch = rURL.match(sURL);
     if not oURLMatch:
       raise cURL.cInvalidURLException("Invalid URL", sURL);
     (sProtocol, sHostname, sPort, sPath, sQuery, sFragment) = oURLMatch.groups();
