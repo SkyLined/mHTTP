@@ -10,3 +10,6 @@
 [submodule "modules/mHTTPProtocol"]
 	path = modules/mHTTPProtocol
 	url = https://github.com/SkyLined/mHTTPProtocol/
+[submodule "modules/mSSL"]
+	path = modules/mSSL
+	url = https://github.com/SkyLined/mSSL/
