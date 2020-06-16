@@ -7,3 +7,6 @@
 [submodule "modules/mHTTPConnections"]
 	path = modules/mHTTPConnections
 	url = https://github.com/SkyLined/mHTTPConnections/
+[submodule "modules/mHTTPProtocol"]
+	path = modules/mHTTPProtocol
+	url = https://github.com/SkyLined/mHTTPProtocol/
