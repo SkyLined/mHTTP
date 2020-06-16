@@ -13,3 +13,6 @@
 [submodule "modules/mSSL"]
 	path = modules/mSSL
 	url = https://github.com/SkyLined/mSSL/
+[submodule "modules/mTCPIPConnections"]
+	path = modules/mTCPIPConnections
+	url = https://github.com/SkyLined/mTCPIPConnections/
