@@ -1,14 +1,14 @@
 {
   "asDependentOnProductNames": [
     "mDebugOutput", 
-    "mHTTPConnections",
-    "mHTTPProtocol",
-    "mMultiThreading",
-    "mSSL",
-    "mTCPIPConnections",
+    "mHTTPConnections", 
+    "mHTTPProtocol", 
+    "mMultiThreading", 
+    "mSSL", 
+    "mTCPIPConnections", 
     "mWindowsSDK"
   ], 
-  "oProductVersion": "2019-10-24 09:55", 
+  "oProductVersion": "2020-06-16 09:12", 
   "oRepository": {
     "sBranch": "master", 
     "sRepositoryName": "mHTTP", 
