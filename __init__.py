@@ -32,64 +32,20 @@ for (sModuleName, sDownloadURL) in [
 # Restore the search path
 sys.path = asOriginalSysPath;
 
-from .cCertificateAuthority import cCertificateAuthority;
-from .cCertificateStore import cCertificateStore;
 from .cHTTPClient import cHTTPClient;
-from .cHTTPClientProxyServer import cHTTPClientProxyServer;
-#from .cHTTPClientUsingPAC import cHTTPClientUsingPAC;
+from .cHTTPClientSideProxyServer import cHTTPClientSideProxyServer;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
-from .cHTTPHeaders import cHTTPHeaders;
-from .cHTTPRequest import cHTTPRequest;
-from .cHTTPResponse import cHTTPResponse;
 from .cHTTPServer import cHTTPServer;
-from .cURL import cURL;
-from .fdsURLDecodedNameValuePairsFromString import fdsURLDecodedNameValuePairsFromString;
-from .fsURLEncodedStringFromNameValuePairs import fsURLEncodedStringFromNameValuePairs;
 from .fsGetMediaTypeForExtension import fsGetMediaTypeForExtension;
+from mHTTPProtocol import cURL;
 
 # Exceptions hierarchy
-from .cException import cException;
-from .cConnectionException import cConnectionException;
-from cBufferedSocket import cBufferedSocket;
-cConnectToUnknownAddressException = cBufferedSocket.cConnectToUnknownAddressException;
-cConnectToInvalidAddressException = cBufferedSocket.cConnectToInvalidAddressException;
-cConnectTimeoutException = cBufferedSocket.cConnectTimeoutException;
-cConnectionRefusedException = cBufferedSocket.cConnectionRefusedException;
-cTransactionTimeoutException = cBufferedSocket.cTransactionTimeoutException;
-cConnectionClosedException = cBufferedSocket.cConnectionClosedException;
-cTooMuchDataException = cBufferedSocket.cTooMuchDataException;
-
-from .cProtocolException import cProtocolException;
-from .cHTTPConnection import cHTTPConnection;
-cOutOfBandDataException = cHTTPConnection.cOutOfBandDataException;
-from .iHTTPMessage import iHTTPMessage;
-cInvalidHTTPMessageException = iHTTPMessage.cInvalidHTTPMessageException;
 
 __all__ = [
-  "cCertificateAuthority",
-  "cCertificateStore",
   "cHTTPClient",
-  "cHTTPClientProxyServer",
-#  "cHTTPClientUsingPAC",
+  "cHTTPClientSideProxyServer",
   "cHTTPClientUsingProxyServer",
-  "cHTTPHeaders",
-  "cHTTPRequest",
-  "cHTTPResponse",
   "cHTTPServer",
-  "cURL",
-  "fdsURLDecodedNameValuePairsFromString",
-  "fsURLEncodedStringFromNameValuePairs",
   "fsGetMediaTypeForExtension",
-  "cException",
-    "cConnectionException",
-      "cConnectToUnknownAddressException",
-      "cConnectToInvalidAddressException",
-      "cConnectTimeoutException",
-      "cConnectionRefusedException",
-      "cTransactionTimeoutException",
-      "cConnectionClosedException",
-      "cTooMuchDataException",
-    "cProtocolException",
-      "cOutOfBandDataException",
-      "cInvalidHTTPMessageException",
+  "cURL",
 ];

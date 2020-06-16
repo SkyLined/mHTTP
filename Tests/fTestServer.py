@@ -1,27 +1,50 @@
-from mHTTP import cHTTPClient, cHTTPResponse, cHTTPServer;
-from mDebugOutput import fDebugOutput;
+from mHTTP import cHTTPClient, cHTTPServer;
+from oConsole import oConsole;
 
-def foRequestHandler(oHTTPServer, oConnection, oRequest):
-  return cHTTPResponse(sData = "Hello, world!");
+def ftxRequestHandler(
+  oHTTPServer,
+  oConnection,
+  oRequest,
+):
+  return (
+    oConnection.foCreateResponse(szData = "Hello, world!"),
+    True
+  );
 
-def fTestServer(oCertificateStore, oServerURL):
+def fTestServer(
+  cHTTPServer,
+  cHTTPClient,
+  oCertificateStore,
+  oServerURL,
+  nEndWaitTimeoutInSeconds,
+  fzLogEvents,
+):
   # Can be use to test cHTTPServer with a http:// or https:// URL.
-  fDebugOutput(("**** Creating a cHTTPServer instance at %s " % oServerURL).ljust(160, "*"));
+  oConsole.fPrint("\xFE\xFE\xFE\xFE Creating a cHTTPServer instance at %s... " % oServerURL, sPadding = "\xFE");
   if oServerURL.bSecure:
     oSSLContext = oCertificateStore.foGetSSLContextForServerWithHostname(oServerURL.sHostname);
   else:
     oSSLContext = None;
-  oHTTPServer = cHTTPServer(oServerURL.sHostname, oServerURL.uPort, oSSLContext);
-  fDebugOutput(("**** Starting the cHTTPServer instance at %s " % oServerURL).ljust(160, "*"));
-  oHTTPServer.fStart(foRequestHandler);
-  fDebugOutput("**** Creating a new cHTTPClient instance ".ljust(160, "*"));
+  oHTTPServer = cHTTPServer(ftxRequestHandler, oServerURL.sHostname, oServerURL.uPort, oSSLContext);
+  if fzLogEvents: fzLogEvents(oHTTPServer, "oHTTPServer");
+  oConsole.fPrint("\xFE\xFE\xFE\xFE Creating a new cHTTPClient instance... ", sPadding = "\xFE");
   oHTTPClient = cHTTPClient(oCertificateStore);
-  fDebugOutput(("**** Making a first test request to %s " % oServerURL).ljust(160, "*"));
-  fDebugOutput(repr(oHTTPClient.foGetResponseForURL(oServerURL).fsSerialize()));
-  fDebugOutput(("**** Making a second test request to %s " % oServerURL).ljust(160, "*"));
-  fDebugOutput(repr(oHTTPClient.foGetResponseForURL(oServerURL).fsSerialize()));
-  fDebugOutput(("**** Stopping the cHTTPServer instance at %s " % oServerURL).ljust(160, "*"));
+  if fzLogEvents: fzLogEvents(oHTTPClient, "oHTTPClient");
+  oConsole.fPrint("\xFE\xFE\xFE\xFE Making a first test request to %s... " % oServerURL, sPadding = "\xFE");
+  ozResponse = oHTTPClient.fozGetResponseForURL(oServerURL);
+  assert ozResponse, \
+      "No response!?";
+  oConsole.fPrint(repr(ozResponse.fsSerialize()));
+  oConsole.fPrint("\xFE\xFE\xFE\xFE Making a second test request to %s... " % oServerURL, sPadding = "\xFE");
+  ozResponse = oHTTPClient.fozGetResponseForURL(oServerURL);
+  assert ozResponse, \
+      "No response!?";
+  oConsole.fPrint(repr(ozResponse.fsSerialize()));
+  oConsole.fPrint("\xFE\xFE\xFE\xFE Stopping the cHTTPServer instance at %s... " % oServerURL, sPadding = "\xFE");
   oHTTPServer.fStop();
-  oHTTPServer.fWait();
+  assert oHTTPServer.fbWait(nEndWaitTimeoutInSeconds), \
+      "cHTTPServer instance did not stop in time";
+  oConsole.fPrint("\xFE\xFE\xFE\xFE Stopping the cHTTPClient instance... ", sPadding = "\xFE");
   oHTTPClient.fStop();
-  oHTTPServer.fWait();
+  assert oHTTPClient.fbWait(nEndWaitTimeoutInSeconds), \
+      "oHTTPClient instance did not stop in time";

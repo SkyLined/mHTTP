@@ -1,7 +1,12 @@
 {
   "asDependentOnProductNames": [
     "mDebugOutput", 
-    "mMultiThreading"
+    "mHTTPConnections",
+    "mHTTPProtocol",
+    "mMultiThreading",
+    "mSSL",
+    "mTCPIPConnections",
+    "mWindowsSDK"
   ], 
   "oProductVersion": "2019-10-24 09:55", 
   "oRepository": {

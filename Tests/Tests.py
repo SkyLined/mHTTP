@@ -29,107 +29,140 @@ asUnexpectedModules = list(set([
       [dxProductDetails["sProductName"]] +
       dxProductDetails["asDependentOnProductNames"] +
       [
-        # These are optional, not required:
-        "oConsole", "mWindowsSDK",
+        # This is optional, not required:
+        "oConsole", 
         # These built-in modules are expected:
         "base64", "binascii", "cStringIO", "collections", "contextlib",
         "ctypes", "datetime", "dis", "future__", "hashlib", "gc", "gzip",
         "heapq", "imp", "inspect", "io", "itertools", "json", "keyword",
         "math", "msvcrt", "nturl2path", "opcode", "platform", "random",
-        "Queue", "socket", "ssl", "string", "StringIO", "strop", "struct",
-        "subprocess", "textwrap", "thread", "threading", "time", "timeit",
-        "token", "tokenize", "urllib", "urlparse", "zlib"
+        "Queue", "select", "socket", "ssl", "string", "StringIO", "strop",
+        "struct", "subprocess", "textwrap", "thread", "threading", "time",
+        "timeit", "token", "tokenize", "urllib", "urlparse", "zlib"
       ]
     )
   )
 ]));
 assert len(asUnexpectedModules) == 0, \
       "Module(s) %s was/were unexpectedly loaded!" % ", ".join(sorted(asUnexpectedModules));
+for sModuleName in dxProductDetails["asDependentOnProductNames"]:
+  assert sModuleName in sys.modules, \
+      "%s is listed as a dependency but not loaded by the module!" % sModuleName;
 
-# Restore the search path
-sys.path = asOriginalSysPath;
-
-from mDebugOutput import fDebugOutput, fFatalExceptionOutput, fShowFileDebugOutputForClass;
+from mDebugOutput import fEnableDebugOutputForClass, fEnableDebugOutputForModule, fTerminateWithException;
 try:
-  from mHTTP import *;
-  from fTestURL import fTestURL;
+  from oConsole import oConsole;
+  
+  import mHTTP, mSSL;
+  
   from fTestClient import fTestClient;
   from fTestServer import fTestServer;
-  from fTestProxyServer import fTestProxyServer;
+  from fTestProxyClientAndServer import fTestProxyClientAndServer;
   
-  from mHTTP.cHTTPConnectionsToServerPool import cHTTPConnectionsToServerPool;
-  from mHTTP.iHTTPMessage import iHTTPMessage;
   from mMultiThreading import cLock;
-
-  # Enable/disable output for all classes
-  if len(sys.argv) > 1 and sys.argv[1] == "--debug":
-    fShowFileDebugOutputForClass(cBufferedSocket);
-    fShowFileDebugOutputForClass(cCertificateAuthority);
-    fShowFileDebugOutputForClass(cCertificateStore);
-    fShowFileDebugOutputForClass(cHTTPClient);
-    fShowFileDebugOutputForClass(cHTTPClientProxyServer);
-    fShowFileDebugOutputForClass(cHTTPClientUsingProxyServer);
-    fShowFileDebugOutputForClass(cHTTPConnection);
-    fShowFileDebugOutputForClass(cHTTPConnectionsToServerPool);
-    fShowFileDebugOutputForClass(cHTTPHeaders);
-    fShowFileDebugOutputForClass(cHTTPRequest);
-    fShowFileDebugOutputForClass(cHTTPResponse);
-    fShowFileDebugOutputForClass(cHTTPServer);
-    fShowFileDebugOutputForClass(cLock);
-    fShowFileDebugOutputForClass(cURL);
-    fShowFileDebugOutputForClass(iHTTPMessage);
-
-  sCertificatesPath = os.path.join(sMainFolderPath, "Certificates");
-
-  if __name__ == "__main__":
-    fDebugOutput("**** Creating a cCertificateAuthority instance ".ljust(160, "*"));
-    oCertificateAuthority = cCertificateAuthority(sCertificatesPath);
-    fDebugOutput("**** Creating a cCertificateStore instance ".ljust(160, "*"));
-    oCertificateStore = cCertificateStore();
-    oCertificateStore.fAddCertificateAuthority(oCertificateAuthority);
-    fDebugOutput("**** Creating test URLs ".ljust(160, "*"));
-    oExampleURL = cURL.foFromString("http://example.com");
-    oSecureExampleURL = cURL.foFromString("https://example.com");
-    oProxyServerURL = cURL.foFromString("http://localhost:8080");
-    oLocalNonSecureURL = cURL.foFromString("http://localhost:28876/local-non-secure");
-    oLocalSecureURL = cURL.foFromString("https://localhost:28876/local-secure");
-
-    oUnknownAddressURL = cURL.foFromString("http://does.not.exist.example.com/unknown-address");
-    oInvalidAddressURL = cURL.foFromString("http://0.0.0.0/invalid-address");
-    oConnectionRefusedURL = cURL.foFromString("http://localhost:28081/connection-refused");
-    oConnectionTimeoutURL = cURL.foFromString("http://example.com:1"); # Not sure how to do this locally :(
-    oConnectionClosedURL = cURL.foFromString("http://localhost:28083/close-connection");
-    oOutOfBandDataURL = cURL.foFromString("http://localhost:28084/out-of-band-data");
-    oInvalidHTTPMessageURL = cURL.foFromString("http://localhost:28085/invalid-response");
-    # Generate a valid SSL certificate and key for "localhost" and load it into the certificate store.
-    fDebugOutput(("**** Getting a certificate for %s " % oLocalSecureURL.sHostname).ljust(160, "*"));
-    oCertificateAuthority.foGenerateSSLContextForServerWithHostname(oLocalSecureURL.sHostname);
+  
+  def fLogEvents(oWithCallbacks, sWithCallbacks = None):
+    def fAddCallback(sEventName):
+      def fOutputEventDetails(oWithCallbacks, *txArguments, **dxArguments):
+        oConsole.fPrint(sWithCallbacks or str(oWithCallbacks), " => ", repr(sEventName));
+        for xValue in txArguments:
+          oConsole.fPrint("  ", str(xValue));
+        for (sName, xValue) in dxArguments.items():
+          oConsole.fPrint("  ", sName, " = ", str(xValue));
+      
+      oWithCallbacks.fAddCallback(sEventName, fOutputEventDetails);
     
-    fDebugOutput("@" * 160);
-    fDebugOutput(" Test URL");
-    fDebugOutput("@" * 160);
-    fTestURL();
-    fDebugOutput("@" * 160);
-    fDebugOutput(" Test HTTP client");
-    fDebugOutput("@" * 160);
-    fTestClient(oCertificateStore, oExampleURL, oSecureExampleURL, oUnknownAddressURL, oInvalidAddressURL, oConnectionRefusedURL, oConnectionTimeoutURL, oConnectionClosedURL, oOutOfBandDataURL, oInvalidHTTPMessageURL);
-    fDebugOutput("@" * 160);
-    fDebugOutput(" Test HTTP server");
-    fDebugOutput("@" * 160);
-    fTestServer(oCertificateStore, oLocalNonSecureURL);
-    fDebugOutput("@" * 160);
-    fDebugOutput(" Test HTTPS server");
-    fDebugOutput("@" * 160);
-    fTestServer(oCertificateStore, oLocalSecureURL);
-    fDebugOutput("@" * 160);
-    fDebugOutput(" Test HTTP client proxy server");
-    fDebugOutput("@" * 160);
-    fTestProxyServer(oProxyServerURL, oCertificateStore, oExampleURL, oSecureExampleURL);
-    fDebugOutput("@" * 160);
-    fDebugOutput(" Test HTTP client proxy server with intercepted HTTPS connections");
-    fDebugOutput("@" * 160);
-    fTestProxyServer(oProxyServerURL, oCertificateStore, oExampleURL, oSecureExampleURL, oInterceptSSLConnectionsCertificateAuthority = oCertificateAuthority);
+    for sEventName in oWithCallbacks.fasGetEventNames():
+      fAddCallback(sEventName);
+
+  bTestClient = None;
+  bTestServer = None;
+  bTestProxy = None;
+  fzLogEvents = None;
+  # Enable/disable output for all classes
+  for sArgument in sys.argv[1:]:
+    if sArgument == "--quick": 
+      pass; # Always quick :)
+    elif sArgument == "--events":
+      fzLogEvents = fLogEvents;
+    elif sArgument == "--debug":
+      # Turn on debugging for various classes, including a few that are not directly exported.
+      import mTCPIPConnections, mHTTPConnections, mHTTPProtocol;
+      fEnableDebugOutputForModule(mHTTP);
+      fEnableDebugOutputForModule(mHTTPConnections);
+#      fEnableDebugOutputForClass(mHTTPProtocol.cHTTPHeader);
+#      fEnableDebugOutputForClass(mHTTPProtocol.cHTTPHeaders);
+      fEnableDebugOutputForClass(mHTTPProtocol.cHTTPRequest);
+      fEnableDebugOutputForClass(mHTTPProtocol.cHTTPResponse);
+      fEnableDebugOutputForClass(mHTTPProtocol.iHTTPMessage);
+      fEnableDebugOutputForModule(mTCPIPConnections);
+      fEnableDebugOutputForModule(mSSL);
+      # Outputting debug information is slow, so increase the timeout!
+      mHTTP.cHTTPClient.nDefaultConnectTimeoutInSeconds = 100;
+      mHTTP.cHTTPClient.nDefaultTransactionTimeoutInSeconds = 100;
+    elif sArgument == "--client":
+      if bTestClient is None:
+        bTestServer = False;
+        bTestProxy = False;
+      bTestClient = True;
+    elif sArgument == "--server":
+      if bTestClient is None:
+        bTestClient = False;
+        bTestProxy = False;
+      bTestServer = True;
+    elif sArgument == "--proxy":
+      if bTestClient is None:
+        bTestClient = False;
+        bTestServer = False;
+      bTestProxy = True;
+    else:
+      raise AssertionError("Unknown argument %s" % sArgument);
+  
+  nEndWaitTimeoutInSeconds = 10;
+  sCertificatesPath = os.path.join(sTestsFolderPath, "Certificates");
+
+  oLocalNonSecureURL = mHTTP.cURL.foFromString("http://localhost:28876/local-non-secure");
+  oLocalSecureURL = mHTTP.cURL.foFromString("https://localhost:28876/local-secure");
+  oProxyServerURL = mHTTP.cURL.foFromString("https://localhost:28876");
+  oConsole.fOutput("\xFE\xFE\xFE\xFE Creating a cCertificateStore instance ".ljust(160, "\xFE"));
+  oCertificateStore = mSSL.cCertificateStore();
+  oCertificateStore.fAddCertificateAuthority(mSSL.oCertificateAuthority);
+  oConsole.fOutput("  oCertificateStore = %s" % oCertificateStore);
+  # Reset the certificate authority and generate an SSL certificate and key
+  # for "localhost".
+  oConsole.fOutput("\xFE\xFE\xFE\xFE Resetting oCertificateAuthority...".ljust(160, "\xFE"));
+  oConsole.fOutput("  oCertificateAuthority = %s" % mSSL.oCertificateAuthority);
+  mSSL.oCertificateAuthority.fReset();
+  oConsole.fOutput(("\xFE\xFE\xFE\xFE Getting a certificate for %s " % oLocalSecureURL.sHostname).ljust(160, "\xFE"));
+  mSSL.oCertificateAuthority.foGenerateSSLContextForServerWithHostname(oLocalSecureURL.sHostname);
+  
+  if bTestClient is not False:
+    oConsole.fPrint("\xFE\xFE\xFE\xFE Creating a cHTTPClient instance ", sPadding = "\xFE");
+    oHTTPClient = mHTTP.cHTTPClient(oCertificateStore);
+    if fzLogEvents: fzLogEvents(oHTTPClient);
+    oConsole.fOutput("\xFE" * 160);
+    oConsole.fOutput(" Test HTTP client");
+    oConsole.fOutput("\xFE" * 160);
+    fTestClient(oHTTPClient, oCertificateStore, nEndWaitTimeoutInSeconds);
+  
+  if bTestServer is not False:
+    oConsole.fOutput("\xFE" * 160);
+    oConsole.fOutput(" Test HTTP server");
+    oConsole.fOutput("\xFE" * 160);
+    fTestServer(mHTTP.cHTTPServer, mHTTP.cHTTPClient, oCertificateStore, oLocalNonSecureURL, nEndWaitTimeoutInSeconds, fzLogEvents);
+    
+    oConsole.fOutput("\xFE" * 160);
+    oConsole.fOutput(" Test HTTPS server");
+    oConsole.fOutput("\xFE" * 160);
+    fTestServer(mHTTP.cHTTPServer, mHTTP.cHTTPClient, oCertificateStore, oLocalSecureURL, nEndWaitTimeoutInSeconds, fzLogEvents);
+  
+  if bTestProxy is not False:
+    for oCertificateAuthority in [None, mSSL.oCertificateAuthority]:
+      oConsole.fOutput("\xFE" * 160);
+      oConsole.fOutput(" Test HTTP client proxy server%s." % (" with intercepted HTTPS connections" if oCertificateAuthority else ""));
+      oConsole.fOutput("\xFE" * 160);
+      fTestProxyClientAndServer(oProxyServerURL, oCertificateStore, oCertificateAuthority, nEndWaitTimeoutInSeconds, fzLogEvents);
 except Exception as oException:
-  fFatalExceptionOutput(oException);
+  fTerminateWithException(oException, bShowStacksForAllThread = True);
 else:
-  fDebugOutput("+ Done.");
+  oConsole.fOutput("+ Done.");
