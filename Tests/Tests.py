@@ -72,7 +72,7 @@ try:
       raise AssertionError("Unknown argument %s" % sArgument);
   
   nEndWaitTimeoutInSeconds = 10;
-  sCertificatesPath = os.path.join(sTestsFolderPath, "Certificates");
+  sCertificatesPath = os.path.join(os.path.dirname(__file__), "Certificates");
 
   oLocalNonSecureURL = mHTTP.cURL.foFromString("http://localhost:28876/local-non-secure");
   oLocalSecureURL = mHTTP.cURL.foFromString("https://localhost:28876/local-secure");
