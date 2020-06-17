@@ -3,7 +3,6 @@ binascii
 collections
 contextlib
 cStringIO
-ctypes
 datetime
 dis
 future__
@@ -18,7 +17,6 @@ math
 msvcrt
 nturl2path
 opcode
-platform
 Queue
 random
 select

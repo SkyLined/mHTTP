@@ -1,9 +1,18 @@
 import time;
 
+try: # mDebugOutput use is Optional
+  from mDebugOutput import *;
+except: # Do nothing if not available.
+  ShowDebugOutput = lambda fxFunction: fxFunction;
+  fShowDebugOutput = lambda sMessage: None;
+  fEnableDebugOutputForModule = lambda mModule: None;
+  fEnableDebugOutputForClass = lambda cClass: None;
+  fEnableAllDebugOutput = lambda: None;
+  cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
+
 from .cException import cException;
 from .cHTTPClient import cHTTPClient;
 
-from mDebugOutput import ShowDebugOutput, fShowDebugOutput;
 from mMultiThreading import cLock, cWithCallbacks;
 from mSSL import cCertificateStore;
 from mHTTPConnections import cHTTPConnection;

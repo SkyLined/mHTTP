@@ -1,10 +1,36 @@
 from fTestDependencies import fTestDependencies;
 fTestDependencies();
 
-from mDebugOutput import fEnableDebugOutputForClass, fEnableDebugOutputForModule, fTerminateWithException;
 try:
+  import mDebugOutput;
+except:
+  mDebugOutput = None;
+try:
+  try:
+    from oConsole import oConsole;
+  except:
+    import sys, threading;
+    oConsoleLock = threading.Lock();
+    class oConsole(object):
+      @staticmethod
+      def fOutput(*txArguments, **dxArguments):
+        sOutput = "";
+        for x in txArguments:
+          if isinstance(x, (str, unicode)):
+            sOutput += x;
+        sPadding = dxArguments.get("sPadding");
+        if sPadding:
+          sOutput.ljust(120, sPadding);
+        oConsoleLock.acquire();
+        print sOutput;
+        sys.stdout.flush();
+        oConsoleLock.release();
+      fPrint = fOutput;
+      @staticmethod
+      def fStatus(*txArguments, **dxArguments):
+        pass;
+  
   import os, sys;
-  from oConsole import oConsole;
   from mMultiThreading import cLock;
   import mSSL;
   
@@ -116,6 +142,8 @@ try:
       oConsole.fOutput("\xFE" * 160);
       fTestProxyClientAndServer(oProxyServerURL, oCertificateStore, oCertificateAuthority, nEndWaitTimeoutInSeconds, fzLogEvents);
   oConsole.fOutput("+ Done.");
+  
 except Exception as oException:
-  fTerminateWithException(oException, bShowStacksForAllThread = True);
-
+  if mDebugOutput:
+    mDebugOutput.fTerminateWithException(oException, bShowStacksForAllThread = True);
+  raise;

@@ -1,12 +1,21 @@
 import re, time;
 
+try: # mDebugOutput use is Optional
+  from mDebugOutput import *;
+except: # Do nothing if not available.
+  ShowDebugOutput = lambda fxFunction: fxFunction;
+  fShowDebugOutput = lambda sMessage: None;
+  fEnableDebugOutputForModule = lambda mModule: None;
+  fEnableDebugOutputForClass = lambda cClass: None;
+  fEnableAllDebugOutput = lambda: None;
+  cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
+
 from .cHTTPServer import cHTTPServer;
 from .cHTTPClient import cHTTPClient;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
 
 from mHTTPConnections import cHTTPConnection;
 from mTCPIPConnections import cTransactionalBufferedTCPIPConnection;
-from mDebugOutput import ShowDebugOutput, fShowDebugOutput;
 from mMultiThreading import cLock, cThread, cWithCallbacks;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
