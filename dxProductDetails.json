@@ -12,7 +12,7 @@
     "mWindowsSDK", 
     "oConsole"
   ], 
-  "oProductVersion": "2020-06-17 11:11", 
+  "oProductVersion": "2020-06-17 16:43", 
   "oRepository": {
     "sBranch": "master", 
     "sRepositoryName": "mHTTP", 
