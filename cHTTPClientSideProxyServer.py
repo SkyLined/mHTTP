@@ -14,7 +14,7 @@ from .cHTTPServer import cHTTPServer;
 from .cHTTPClient import cHTTPClient;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
 
-from mHTTPConnections import cHTTPConnection;
+from mHTTPConnections import cHTTPConnection, cHTTPResponse, cHTTPHeaders;
 from mTCPIPConnections import cTransactionalBufferedTCPIPConnection;
 from mMultiThreading import cLock, cThread, cWithCallbacks;
 
@@ -24,14 +24,15 @@ from mMultiThreading import cLock, cThread, cWithCallbacks;
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
 def foGetErrorResponse(sVersion, uStatusCode, sBody):
-  return cHTTPConnection.cHTTPResponse(
+  return cHTTPResponse(
     szVersion = sVersion,
     uzStatusCode = uStatusCode,
-    ozHeaders = cHTTPConnection.cHTTPResponse.cHTTPHeaders.foFromDict({
+    ozHeaders = cHTTPHeaders.foFromDict({
       "Connection": "Close",
       "Content-Type": "text/plain",
     }),
     szBody = sBody,
+    bAutomaticallyAddContentLengthHeader = True,
   );
 
 def foGetResponseForException(oException, sHTTPVersion):
@@ -442,15 +443,16 @@ class cHTTPClientSideProxyServer(cWithCallbacks):
       # between them.
       oConnectionFromClient.fAddCallback("response sent", fStartConnectionHandlerThread, bFireOnce = True);
       # Send a reponse to the client.
-      oResponse = cHTTPConnection.cHTTPResponse(
+      oResponse = cHTTPResponse(
         szVersion = oRequest.sVersion,
         uzStatusCode = 200,
         szReasonPhrase = "Ok",
-        ozHeaders = cHTTPConnection.cHTTPResponse.cHTTPHeaders.foFromDict({
+        ozHeaders = cHTTPHeaders.foFromDict({
           "Connection": "Keep-Alive",
           "Content-type": "text/plain",
         }),
         szBody = "Connected to remote server.",
+        bAutomaticallyAddContentLengthHeader = True,
       );
       return oResponse;
     return None;

@@ -15,7 +15,7 @@ from .cHTTPClient import cHTTPClient;
 
 from mMultiThreading import cLock, cWithCallbacks;
 from mSSL import cCertificateStore;
-from mHTTPConnections import cHTTPConnection;
+from mHTTPConnections import cHTTPConnection, cHTTPRequest, cHTTPHeaders;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
@@ -163,13 +163,14 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
   def foGetRequestForURL(oSelf,
     oURL,
     szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
+    ozAdditionalHeaders = None, bAutomaticallyAddContentLengthHeader = False
   ):
     if ozHeaders is not None:
       for sName in ["Proxy-Authenticate", "Proxy-Authorization", "Proxy-Connection"]:
         ozHeader = oHeaders.fozGetUniqueHeaderForName(sName);
         assert ozHeader is None, \
             "%s header is not implemented!" % repr(ozHeader.sName);
-    oRequest = cHTTPConnection.cHTTPRequest(
+    oRequest = cHTTPRequest(
       # Secure requests are made directly from the server after a CONNECT request, so the URL must be relative.
       # Non-secure requests are made to the proxy, so the URL must be absolute.
       sURL = oURL.sRelative if oURL.bSecure else oURL.sAbsolute,
@@ -179,6 +180,8 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
       szBody = szBody,
       szData = szData,
       azsBodyChunks = azsBodyChunks,
+      ozAdditionalHeaders = ozAdditionalHeaders,
+      bAutomaticallyAddContentLengthHeader = bAutomaticallyAddContentLengthHeader
     );
     if not oRequest.oHeaders.fozGetUniqueHeaderForName("Host"):
       oRequest.oHeaders.foAddHeaderForNameAndValue("Host", oURL.sHostnameAndPort);
@@ -397,10 +400,10 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
         "Expected a connection but got %s" % oConnectionToProxy;
     # We have a non-secure connection to the the proxy and we need to make it a secure connection to a server by
     # sending a CONNECT request to the proxy first and then wrap the socket in SSL.
-    oConnectRequest = cHTTPConnection.cHTTPRequest(
+    oConnectRequest = cHTTPRequest(
       sURL = oServerBaseURL,
       szMethod = "CONNECT",
-      ozHeaders = cHTTPConnection.cHTTPRequest.cHTTPHeaders.foFromDict({
+      ozHeaders = cHTTPHeaders.foFromDict({
         "Host": oServerBaseURL.sAddress,
         "Connection": "Keep-Alive",
       }),
