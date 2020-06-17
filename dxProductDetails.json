@@ -1,23 +1,25 @@
 {
   "asDependentOnProductNames": [
-    "mHTTPConnections",
-    "mHTTPProtocol",
-    "mMultiThreading",
-    "mSSL",
-    "mTCPIPConnections",
+    "mHTTPConnections", 
+    "mHTTPProtocol", 
+    "mMultiThreading", 
+    "mSSL", 
+    "mTCPIPConnections", 
     "mWindowsSDK"
   ], 
   "asOptionalProductNames": [
-    "mDebugOutput",
+    "mDebugOutput", 
     "oConsole"
-  ],
-  "oProductVersion": "2020-06-17 08:49", 
+  ], 
+  "oProductVersion": "2020-06-17 11:11", 
   "oRepository": {
     "sBranch": "master", 
     "sRepositoryName": "mHTTP", 
     "sType": "GitHub", 
     "sUserName": "SkyLined"
   }, 
+  "oTrialPeriodDuration": null, 
+  "sLicenseServerURL": null, 
   "sProductAuthor": "SkyLined", 
   "sProductName": "mHTTP", 
   "sProductURL": "https://github.com/SkyLined/mHTTP"
