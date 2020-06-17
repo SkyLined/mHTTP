@@ -91,7 +91,7 @@ class cHTTPServer(cWithCallbacks):
     );
   
   def foGetURLForRequest(oSelf, oRequest):
-    return oSelf.cURL.foFromString(oSelf.oURL.sBase + oSelf.fsGetRequestURL(oRequest));
+    return oSelf.oURL.foFromRelativeString(oRequest.sURL);
   
   @ShowDebugOutput
   def __fCheckForTermination(oSelf, bMustBeTerminated = False):
@@ -275,7 +275,7 @@ class cHTTPServer(cWithCallbacks):
         assert isinstance(oResponse, cHTTPConnection.cHTTPResponse), \
             "Request handler must return a cHTTPResponse, got %s" % oResponse.__class__.__name__;
         if oSelf.__bStopping:
-          oResponse.oHeaders.fbReplaceHeaders("Connection", "Close");
+          oResponse.oHeaders.fbReplaceHeadersForName("Connection", "Close");
         # Send response, handle errors
         fShowDebugOutput("Sending response %s to %s..." % (oResponse, oConnection));
         try:
