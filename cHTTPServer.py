@@ -10,8 +10,10 @@ except: # Do nothing if not available.
   fEnableAllDebugOutput = lambda: None;
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
-from mHTTPConnections import cHTTPConnection, cHTTPConnectionAcceptor;
+from mHTTPConnections import cHTTPConnection, cHTTPConnectionAcceptor, cHTTPResponse, cURL;
 from mMultiThreading import cLock, cThread, cWithCallbacks;
+
+from .mHTTPExceptions import *;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
@@ -19,7 +21,6 @@ from mMultiThreading import cLock, cThread, cWithCallbacks;
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
 class cHTTPServer(cWithCallbacks):
-  cURL = cHTTPConnection.cHTTPRequest.cURL;
   nzDefaultTransactionTimeoutInSeconds = 10;
   nzDefaultIdleTimeoutInSeconds = 60;
   
@@ -90,8 +91,8 @@ class cHTTPServer(cWithCallbacks):
     return oSelf.foGetURL();
   
   def foGetURL(oSelf, szPath = None, szQuery = None, szFragment = None):
-    return oSelf.cURL(
-      sProtocol = "https" if oSelf.ozSSLContext else "http",
+    return cURL(
+      sProtocol = "https" if oSelf.__oConnectionAcceptor.ozSSLContext else "http",
       sHostname = oSelf.sHostname,
       uzPort = oSelf.uPort,
       szPath = szPath,
@@ -231,17 +232,17 @@ class cHTTPServer(cWithCallbacks):
               );
             else:
               bTransactionStarted = oConnection.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds);
-          except oConnection.cShutdownException as oException:
+          except cShutdownException as oException:
             fShowDebugOutput("Connection %s was shutdown." % oConnection);
             if not bTransactionStarted:
               assert oConnection.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds), \
                   "Cannot start a transaction to disconnect the connection!?";
             oConnection.fDisconnect();
             break;
-        except oConnection.cDisconnectedException as oException:
+        except cDisconnectedException as oException:
           fShowDebugOutput("Connection %s was disconnected." % oConnection);
           break;
-        except oConnection.cTimeoutException as oException:
+        except cTimeoutException as oException:
           fShowDebugOutput("Wait for request from %s timed out: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("idle timeout", oConnection);
           oConnection.fStop();
@@ -255,21 +256,21 @@ class cHTTPServer(cWithCallbacks):
         fShowDebugOutput("Reading request from %s..." % oConnection);
         try:
           oRequest = oConnection.foReceiveRequest(bStartTransaction = False);
-        except oConnection.cShutdownException as oException:
+        except cShutdownException as oException:
           fShowDebugOutput("Shutdown while reading request from %s: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("request error", oConnection, oException);
           oConnection.fDisconnect();
           break;
-        except oConnection.cDisconnectedException as oException:
+        except cDisconnectedException as oException:
           fShowDebugOutput("Disconnected while reading request from %s: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("request error", oConnection, oException);
           break;
-        except oConnection.cInvalidMessageException as oException:
+        except cInvalidMessageException as oException:
           fShowDebugOutput("Invalid request from %s: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("request error", oConnection, oException);
           oConnection.fTerminate();
           break;
-        except oConnection.cTimeoutException as oException:
+        except cTimeoutException as oException:
           fShowDebugOutput("Reading request from %s timed out: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("request error", oConnection, oException);
           oConnection.fTerminate();
@@ -281,7 +282,7 @@ class cHTTPServer(cWithCallbacks):
         if oResponse is None:
           # The server should not sent a response.
           break;
-        assert isinstance(oResponse, cHTTPConnection.cHTTPResponse), \
+        assert isinstance(oResponse, cHTTPResponse), \
             "Request handler must return a cHTTPResponse, got %s" % oResponse.__class__.__name__;
         if oSelf.__bStopping:
           oResponse.oHeaders.fbReplaceHeadersForName("Connection", "Close");
@@ -289,19 +290,17 @@ class cHTTPServer(cWithCallbacks):
         fShowDebugOutput("Sending response %s to %s..." % (oResponse, oConnection));
         try:
           oConnection.fSendResponse(oResponse, bEndTransaction = True);
-        except oConnection.cShutdownException as oException:
-          fShowDebugOutput("Connection %s was shutdown while sending response %s." % (oConnection, oResponse));
+        except Exception as oException:
+          if isinstance(oException, cShutdownException):
+            fShowDebugOutput("Connection %s was shutdown while sending response %s." % (oConnection, oResponse));
+          elif isinstance(oException, cDisconnectedException):
+            fShowDebugOutput("Connection %s was disconnected while sending response %s." % (oConnection, oResponse));
+          elif isinstance(oException, cTimeoutException):
+            fShowDebugOutput("Sending response to %s timed out." % (oConnection, oException));
+          else:
+            raise;
           oSelf.fFireCallbacks("response error", oConnection, oException, oRequest, oResponse);
-          oConnection.fDisconnect();
-          break;
-        except oConnection.cDisconnectedException as oException:
-          fShowDebugOutput("Connection %s was disconnected while sending response %s." % (oConnection, oResponse));
-          oSelf.fFireCallbacks("response error", oConnection, oException, oRequest, oResponse);
-          break;
-        except oConnection.cTimeoutException as oException:
-          fShowDebugOutput("Sending response to %s timed out." % (oConnection, oException));
-          oSelf.fFireCallbacks("response error", oConnection, oException, oRequest, oResponse);
-          oConnection.fTerminate();
+          if oConnection.bConnected: oConnection.fDisconnect();
           break;
         oSelf.fFireCallbacks("response sent", oConnection, oResponse);
         oSelf.fFireCallbacks("request received and response sent", oConnection, oRequest, oResponse);

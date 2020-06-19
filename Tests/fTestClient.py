@@ -1,5 +1,6 @@
 import socket, threading;
-from mHTTP import cURL;
+from mHTTP import *;
+from mHTTP.mHTTPExceptions import *;
 from mHTTPConnections import cHTTPConnection;
 from mMultiThreading import cThread;
 from oConsole import oConsole;
@@ -30,14 +31,16 @@ def fTestClient(
   oServersShouldBeRunningLock = threading.Lock();
   oServersShouldBeRunningLock.acquire(); # Released once servers should stop runnning.
   oConsole.fPrint("\xFE\xFE\xFE\xFE Making a first test request to %s " % oTestURL, sPadding = "\xFE");
-  oResponse = oHTTPClient.fozGetResponseForURL(oTestURL);
+  (oRequest, oResponse) = oHTTPClient.ftozGetRequestAndResponseForURL(oTestURL);
   assert oResponse, \
       "No response!?";
-  oConsole.fPrint("  oResponse = %s" % oResponse);
+  oConsole.fPrint("  oRequest = %s" % oRequest.fsSerialize());
+  oConsole.fPrint("  oResponse = %s" % oResponse.fsSerialize());
   oConsole.fPrint("\xFE\xFE\xFE\xFE Making a second test request to %s " % oTestURL, sPadding = "\xFE");
-  oResponse = oHTTPClient.fozGetResponseForURL(oTestURL);
+  (oRequest, oResponse) = oHTTPClient.ftozGetRequestAndResponseForURL(oTestURL);
   assert oResponse, \
       "No response!?";
+  oConsole.fPrint("  oRequest = %s" % oRequest);
   oConsole.fPrint("  oResponse = %s" % oResponse);
   if oHTTPClient.__class__.__name__ == "cHTTPClient": 
     # cHTTPClient specific checks
@@ -54,57 +57,62 @@ def fTestClient(
         (oTestURL, len(aoConnections));
   if oHTTPClient.__class__.__name__ == "cHTTPClientUsingProxyServer": 
     # cHTTPClientUsingProxyServer specific checks
-    aoNonSecureConnections = oHTTPClient._cHTTPClientUsingProxyServer__aoNonSecureConnections;
-    assert len(aoNonSecureConnections) == 1, \
-        "Expected one connection to the proxy, but found %d connections" % len(aoNonSecureConnections);
-    doSecureConnectionToServer_by_sProtocolHostPort = oHTTPClient._cHTTPClientUsingProxyServer__doSecureConnectionToServer_by_sProtocolHostPort;
-    asSecureConnectionTargets = doSecureConnectionToServer_by_sProtocolHostPort.keys();
+    aoConnectionsToProxyNotConnectedToAServer = oHTTPClient._cHTTPClientUsingProxyServer__aoConnectionsToProxyNotConnectedToAServer;
+    assert len(aoConnectionsToProxyNotConnectedToAServer) == 1, \
+        "Expected one connection to the proxy, but found %d connections" % len(aoConnectionsToProxyNotConnectedToAServer);
+    doSecureConnectionToServerThroughProxy_by_sProtocolHostPort = oHTTPClient._cHTTPClientUsingProxyServer__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort;
+    asSecureConnectionTargets = doSecureConnectionToServerThroughProxy_by_sProtocolHostPort.keys();
     assert len(asSecureConnectionTargets) == 0, \
         "Expected no secure connections, but found %s" % repr(asSecureConnectionTargets);
   
-  oConsole.fPrint("\xFE\xFE\xFE\xFE Making a first test request to %s " % oSecureTestURL, sPadding = "\xFE");
-  oResponse = oHTTPClient.fozGetResponseForURL(oSecureTestURL);
-  assert oResponse, \
-      "No response!?";
-  oConsole.fPrint("  oResponse = %s" % oResponse);
-  oConsole.fPrint("\xFE\xFE\xFE\xFE Making a second test request to %s " % oSecureTestURL, sPadding = "\xFE");
-  oResponse = oHTTPClient.fozGetResponseForURL(oSecureTestURL);
-  assert oResponse, \
-      "No response!?";
-  oConsole.fPrint("  oResponse = %s" % oResponse);
-  if oHTTPClient.__class__.__name__ == "cHTTPClient": 
-    # cHTTPClient specific checks
-    asConnectionPoolsProtocolHostPort = set(oHTTPClient._cHTTPClient__doConnectionsToServerPool_by_sProtocolHostPort.keys());
-    assert asConnectionPoolsProtocolHostPort == set((oTestURL.sBase, oSecureTestURL.sBase)), \
-        "Expected a oHTTPClient instance to have a cConnectionsToServerPool instance for %s and %s, but found %s" % \
-        (oTestURL.sBase, oSecureTestURL.sBase, repr(asConnectionPoolsProtocolHostPort));
-    
-    oConnectionsToServerPool = oHTTPClient._cHTTPClient__doConnectionsToServerPool_by_sProtocolHostPort.get(oSecureTestURL.sBase);
-    assert oConnectionsToServerPool, \
-        "Expected a cConnectionsToServerPool instance for %s, but found none" % oSecureTestURL;
-    aoConnections = oConnectionsToServerPool._cHTTPConnectionsToServerPool__aoConnections;
-    assert len(aoConnections) == 1, \
-        "Expected a cConnectionsToServerPool instance with one connection for %s, but found %d connections" % \
-        (oSecureTestURL, len(aoConnections));
-  if oHTTPClient.__class__.__name__ == "cHTTPClientUsingProxyServer": 
-    # cHTTPClientUsingProxyServer specific checks
-    aoNonSecureConnections = oHTTPClient._cHTTPClientUsingProxyServer__aoNonSecureConnections;
-    doSecureConnectionToServer_by_sProtocolHostPort = oHTTPClient._cHTTPClientUsingProxyServer__doSecureConnectionToServer_by_sProtocolHostPort;
-    asSecureConnectionTargets = doSecureConnectionToServer_by_sProtocolHostPort.keys();
-    bFoundUnexpectedNonSecureConnections = len(aoNonSecureConnections) != 0;
-    bFoundUnexpectedSecureConnections = set(asSecureConnectionTargets) != set((oSecureTestURL.sBase,));
-    if bFoundUnexpectedNonSecureConnections or bFoundUnexpectedSecureConnections:
-      if bFoundUnexpectedNonSecureConnections:
-        print "The HTTP client has unexoected non-secure connections!";
-      if bFoundUnexpectedSecureConnections:
-        print "The HTTP client has unexpected secure connections!";
-      print "Non-secure connections:";
-      for oNonSecureConnection in aoNonSecureConnections:
-        print "* %s" % repr(oNonSecureConnection);
-      print "Secure connections:";
-      for (sProtocolHostPort, oSecureConnection) in doSecureConnectionToServer_by_sProtocolHostPort.items():
-        print "* %S => %s" % (sProtocolHostPort, repr(oSecureConnection));
-      raise AssertionError();
+  # Wrapping SSL secured sockets in SSL is not currently supported, so the client cannot secure a connection
+  # to a server over a secure connection to a proxy.
+  if oHTTPClient.__class__.__name__ != "cHTTPClientUsingProxyServer" or not oHTTPClient.foGetProxyServerURL().bSecure: 
+    oConsole.fPrint("\xFE\xFE\xFE\xFE Making a first test request to %s " % oSecureTestURL, sPadding = "\xFE");
+    (oRequest, oResponse) = oHTTPClient.ftozGetRequestAndResponseForURL(oSecureTestURL);
+    assert oResponse, \
+        "No response!?";
+    oConsole.fPrint("  oRequest = %s" % oRequest);
+    oConsole.fPrint("  oResponse = %s" % oResponse);
+    oConsole.fPrint("\xFE\xFE\xFE\xFE Making a second test request to %s " % oSecureTestURL, sPadding = "\xFE");
+    (oRequest, oResponse) = oHTTPClient.ftozGetRequestAndResponseForURL(oSecureTestURL);
+    assert oResponse, \
+        "No response!?";
+    oConsole.fPrint("  oRequest = %s" % oRequest);
+    oConsole.fPrint("  oResponse = %s" % oResponse);
+    if oHTTPClient.__class__.__name__ == "cHTTPClient": 
+      # cHTTPClient specific checks
+      asConnectionPoolsProtocolHostPort = set(oHTTPClient._cHTTPClient__doConnectionsToServerPool_by_sProtocolHostPort.keys());
+      assert asConnectionPoolsProtocolHostPort == set((oTestURL.sBase, oSecureTestURL.sBase)), \
+          "Expected a oHTTPClient instance to have a cConnectionsToServerPool instance for %s and %s, but found %s" % \
+          (oTestURL.sBase, oSecureTestURL.sBase, repr(asConnectionPoolsProtocolHostPort));
+      
+      oConnectionsToServerPool = oHTTPClient._cHTTPClient__doConnectionsToServerPool_by_sProtocolHostPort.get(oSecureTestURL.sBase);
+      assert oConnectionsToServerPool, \
+          "Expected a cConnectionsToServerPool instance for %s, but found none" % oSecureTestURL;
+      aoConnections = oConnectionsToServerPool._cHTTPConnectionsToServerPool__aoConnections;
+      assert len(aoConnections) == 1, \
+          "Expected a cConnectionsToServerPool instance with one connection for %s, but found %d connections" % \
+          (oSecureTestURL, len(aoConnections));
+    if oHTTPClient.__class__.__name__ == "cHTTPClientUsingProxyServer": 
+      # cHTTPClientUsingProxyServer specific checks
+      aoConnectionsToProxyNotConnectedToAServer = oHTTPClient._cHTTPClientUsingProxyServer__aoConnectionsToProxyNotConnectedToAServer;
+      doSecureConnectionToServerThroughProxy_by_sProtocolHostPort = oHTTPClient._cHTTPClientUsingProxyServer__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort;
+      asSecureConnectionTargets = doSecureConnectionToServerThroughProxy_by_sProtocolHostPort.keys();
+      bFoundUnexpectedNonSecureConnections = len(aoConnectionsToProxyNotConnectedToAServer) != 0;
+      bFoundUnexpectedSecureConnections = set(asSecureConnectionTargets) != set((oSecureTestURL.sBase,));
+      if bFoundUnexpectedNonSecureConnections or bFoundUnexpectedSecureConnections:
+        if bFoundUnexpectedNonSecureConnections:
+          print "The HTTP client has unexpected non-secure connections!";
+        if bFoundUnexpectedSecureConnections:
+          print "The HTTP client has unexpected secure connections!";
+        print "Non-secure connections:";
+        for oNonSecureConnection in aoConnectionsToProxyNotConnectedToAServer:
+          print "* %s" % repr(oNonSecureConnection);
+        print "Secure connections:";
+        for (sProtocolHostPort, oSecureConnection) in doSecureConnectionToServerThroughProxy_by_sProtocolHostPort.items():
+          print "* %S => %s" % (sProtocolHostPort, repr(oSecureConnection));
+        raise AssertionError();
   
   # Create a server on a socket but do not listen so connections are refused.
   oConnectionRefusedServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
@@ -189,15 +197,15 @@ def fTestClient(
   oInvalidHTTPMessageServerThread.fStart(bVital = False);
   
   for (oURL, cException, uStatusCode, uNumberOfRequests) in (
-    (oUnknownHostnameURL,         cHTTPConnection.cUnknownHostnameException,    400, 1),
-    (oInvalidAddressURL,          cHTTPConnection.cInvalidAddressException,     400, 1),
-    (oConnectionRefusedURL,       cHTTPConnection.cConnectionRefusedException,  502, 1),
-    (oConnectionTimeoutURL,       cHTTPConnection.cTimeoutException,            504, 1),
-    (oConnectionDisconnectedURL,  cHTTPConnection.cDisconnectedException,       502, 1),
-    (oConnectionShutdownURL,      cHTTPConnection.cShutdownException,           502, 1),
-    (oResponseTimeoutURL,         cHTTPConnection.cTimeoutException,            504, 1),
-    (oOutOfBandDataURL,           cHTTPConnection.cOutOfBandDataException,      502, 2),
-    (oInvalidHTTPMessageURL, cHTTPConnection.cInvalidMessageException,          502, 1),
+    (oUnknownHostnameURL,         cUnknownHostnameException,    400, 1),
+    (oInvalidAddressURL,          cInvalidAddressException,     400, 1),
+    (oConnectionRefusedURL,       cConnectionRefusedException,  502, 1),
+    (oConnectionTimeoutURL,       cTimeoutException,            504, 1),
+    (oConnectionDisconnectedURL,  cDisconnectedException,       502, 1),
+    (oConnectionShutdownURL,      cShutdownException,           502, 1),
+    (oResponseTimeoutURL,         cTimeoutException,            504, 1),
+    (oOutOfBandDataURL,           cOutOfBandDataException,      502, 2),
+    (oInvalidHTTPMessageURL,      cInvalidMessageException,     502, 1),
   ):
     oConsole.fPrint("\xFE\xFE\xFE\xFE Making a test request to %s " % oURL, sPadding = "\xFE");
     if oHTTPClient.__class__.__name__ == "cHTTPClient":
@@ -210,7 +218,7 @@ def fTestClient(
     for uConnectionNumber in xrange(1, uNumberOfRequests + 1):
       if uConnectionNumber < uNumberOfRequests:
         # We do not yet expect an exception, so we won't handle one.
-        oResponse = oHTTPClient.fozGetResponseForURL(oURL, nzConnectTimeoutInSeconds = 4);
+        oResponse = oHTTPClient.fozGetResponseForURL(oURL);
         assert oResponse, \
             "No response!?";
         oConsole.fPrint("  oResponse = %s" % oResponse);
@@ -218,7 +226,7 @@ def fTestClient(
         try:
           # Use a short connect timeout to speed things up: all connections should be created in about 1 second except the
           # one that purposefully times out and this way we do not have to wait for that to happen very long.
-          oResponse = oHTTPClient.fozGetResponseForURL(oURL, nzConnectTimeoutInSeconds = 4);
+          oResponse = oHTTPClient.fozGetResponseForURL(oURL);
           assert oResponse, \
               "No response!?";
           assert uStatusCode in (None, oResponse.uStatusCode), \

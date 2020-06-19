@@ -22,7 +22,7 @@ def fTestServer(
   # Can be use to test cHTTPServer with a http:// or https:// URL.
   oConsole.fPrint("\xFE\xFE\xFE\xFE Creating a cHTTPServer instance at %s... " % oServerURL, sPadding = "\xFE");
   if oServerURL.bSecure:
-    oSSLContext = oCertificateStore.foGetSSLContextForServerWithHostname(oServerURL.sHostname);
+    oSSLContext = oCertificateStore.foGetServersideSSLContextForHostname(oServerURL.sHostname);
   else:
     oSSLContext = None;
   oHTTPServer = cHTTPServer(ftxRequestHandler, oServerURL.sHostname, oServerURL.uPort, oSSLContext);

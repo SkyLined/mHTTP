@@ -8,9 +8,8 @@ except: # Do nothing if not available.
   fEnableAllDebugOutput = lambda: None;
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
-from mHTTPConnections import cHTTPConnection, cHTTPConnectionsToServerPool;
+from mHTTPConnections import cHTTPConnection, cHTTPConnectionsToServerPool, cURL;
 from mMultiThreading import cLock, cWithCallbacks;
-
 try: # SSL support is optional.
   from mSSL import cCertificateStore as czCertificateStore;
 except:
@@ -32,19 +31,26 @@ class cHTTPClient(cWithCallbacks):
   nzDefaultConnectTimeoutInSeconds = 10;
   nzDefaultSecureTimeoutInSeconds = 5;
   nzDefaultTransactionTimeoutInSeconds = 10;
-  cURL = cHTTPConnection.cHTTPRequest.cURL;
   
   @ShowDebugOutput
   def __init__(oSelf,
     ozCertificateStore = None, uzMaxNumerOfConnectionsToServer = None,
     nzConnectTimeoutInSeconds = None, nzSecureTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None,
+    bAllowUnverifiableCertificates = False, bCheckHostname = True,
   ):
-    oSelf.__ozCertificateStore = ozCertificateStore or (czCertificateStore() if czCertificateStore else None);
+    oSelf.__ozCertificateStore = (
+      ozCertificateStore if ozCertificateStore else
+      czCertificateStore() if czCertificateStore else
+      None
+    );
     oSelf.__uzMaxNumerOfConnectionsToServer = uzMaxNumerOfConnectionsToServer or oSelf.uzDefaultMaxNumerOfConnectionsToServer;
     # Timeouts can be provided through class default, instance defaults, or method call arguments.
     oSelf.__nzConnectTimeoutInSeconds = fxFirstNonNone(nzConnectTimeoutInSeconds, oSelf.nzDefaultConnectTimeoutInSeconds);
     oSelf.__nzSecureTimeoutInSeconds = fxFirstNonNone(nzSecureTimeoutInSeconds, oSelf.nzDefaultSecureTimeoutInSeconds);
     oSelf.__nzTransactionTimeoutInSeconds = fxFirstNonNone(nzTransactionTimeoutInSeconds, oSelf.nzDefaultTransactionTimeoutInSeconds);
+    oSelf.__bAllowUnverifiableCertificates = bAllowUnverifiableCertificates;
+    oSelf.__bCheckHostname = bCheckHostname;
+    
     oSelf.__oPropertyAccessTransactionLock = cLock(
       "%s.__oPropertyAccessTransactionLock" % oSelf.__class__.__name__,
       nzDeadlockTimeoutInSeconds = gnDeadlockTimeoutInSeconds
@@ -136,40 +142,46 @@ class cHTTPClient(cWithCallbacks):
   def fozGetResponseForURL(oSelf,
     oURL,
     szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    nzConnectTimeoutInSeconds = None, nzSecureTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None,
-    bCheckHostname = False,
     uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
-    nzConnectTimeoutInSeconds = fxFirstNonNone(nzConnectTimeoutInSeconds, oSelf.__nzConnectTimeoutInSeconds);
-    nzTransactionTimeoutInSeconds = fxFirstNonNone(nzTransactionTimeoutInSeconds, oSelf.__nzConnectTimeoutInSeconds);
-    oRequest = oSelf.foGetRequestForURL(oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks);
-    oResponse = oSelf.fozGetResponseForRequestAndURL(
-      oRequest, oURL,
-      nzConnectTimeoutInSeconds, nzSecureTimeoutInSeconds, nzTransactionTimeoutInSeconds,
-      bCheckHostname,
-      uzMaximumNumberOfChunksBeforeDisconnecting
+    oRequest = oSelf.foGetRequestForURL(
+      oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks
     );
-    return oResponse;
+    ozResponse = oSelf.fozGetResponseForRequestAndURL(
+      oRequest, oURL, uzMaximumNumberOfChunksBeforeDisconnecting
+    );
+    return ozResponse;
   
   @ShowDebugOutput
-  def ftoGetRequestAndResponseForURL(oSelf,
+  def ftozGetRequestAndResponseForURL(oSelf,
     oURL,
     szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    nzConnectTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None,
-    bCheckHostname = None,
+    uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
-    oRequest = oSelf.foGetRequestForURL(oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks);
-    oResponse = oSelf.fozGetResponseForRequestAndURL(oRequest, oURL, nzConnectTimeoutInSeconds, nzTransactionTimeoutInSeconds, bCheckHostname);
-    return (oRequest, oResponse);
+    oRequest = oSelf.foGetRequestForURL(
+      oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks
+    );
+    ozResponse = oSelf.fozGetResponseForRequestAndURL(
+      oRequest, oURL, uzMaximumNumberOfChunksBeforeDisconnecting,
+    );
+    return (oRequest, ozResponse);
   
   @ShowDebugOutput
   def foGetRequestForURL(oSelf,
     oURL,
     szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
+    ozAdditionalHeaders = None, bAutomaticallyAddContentLengthHeader = False
   ):
     oRequest = cHTTPConnection.cHTTPRequest(
       sURL = oURL.sRelative,
-      szMethod = szMethod, szVersion = szVersion, ozHeaders = ozHeaders, szBody = szBody, szData = szData, azsBodyChunks = azsBodyChunks,
+      szMethod = szMethod,
+      szVersion = szVersion,
+      ozHeaders = ozHeaders,
+      szBody = szBody,
+      szData = szData,
+      azsBodyChunks = azsBodyChunks,
+      ozAdditionalHeaders = ozAdditionalHeaders,
+      bAutomaticallyAddContentLengthHeader = bAutomaticallyAddContentLengthHeader
     );
     if not oRequest.oHeaders.fozGetUniqueHeaderForName("Host"):
       oRequest.oHeaders.foAddHeaderForNameAndValue("Host", oURL.sHostnameAndPort);
@@ -180,30 +192,25 @@ class cHTTPClient(cWithCallbacks):
   @ShowDebugOutput
   def fozGetResponseForRequestAndURL(oSelf,
     oRequest, oURL,
-    nzConnectTimeoutInSeconds = None, nzSecureTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None,
-    bCheckHostname = None,
     uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
-    nzConnectTimeoutInSeconds = fxFirstNonNone(nzConnectTimeoutInSeconds, oSelf.__nzConnectTimeoutInSeconds);
-    nzSecureTimeoutInSeconds = fxFirstNonNone(nzSecureTimeoutInSeconds, oSelf.__nzSecureTimeoutInSeconds);
-    nzTransactionTimeoutInSeconds = fxFirstNonNone(nzTransactionTimeoutInSeconds, oSelf.__nzTransactionTimeoutInSeconds);
-    oConnectionsToServerPool = oSelf.__foGetConnectionsToServerPoolForURL(oURL, bCheckHostname);
-    oResponse = oConnectionsToServerPool.fozSendRequestAndReceiveResponse(
+    oConnectionsToServerPool = oSelf.__foGetConnectionsToServerPoolForURL(oURL);
+    ozResponse = oConnectionsToServerPool.fozSendRequestAndReceiveResponse(
       oRequest,
-      nzConnectTimeoutInSeconds = nzConnectTimeoutInSeconds,
-      nzSecureTimeoutInSeconds = nzSecureTimeoutInSeconds,
-      nzTransactionTimeoutInSeconds = nzTransactionTimeoutInSeconds,
+      nzConnectTimeoutInSeconds = oSelf.__nzConnectTimeoutInSeconds,
+      nzSecureTimeoutInSeconds = oSelf.__nzSecureTimeoutInSeconds,
+      nzTransactionTimeoutInSeconds = oSelf.__nzTransactionTimeoutInSeconds,
       uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
     );
     if oSelf.__bStopping:
       fShowDebugOutput("Stopping.");
       return None;
-    assert oResponse, \
-        "Expected a response but got %s" % repr(oResponse);
-    return oResponse;
+    assert ozResponse, \
+        "Expected a response but got %s" % repr(ozResponse);
+    return ozResponse;
   
   @ShowDebugOutput
-  def __foGetConnectionsToServerPoolForURL(oSelf, oURL, bCheckHostname = None):
+  def __foGetConnectionsToServerPoolForURL(oSelf, oURL):
     # We will reuse connections to the same server if possible. Servers are identified by host name, port and whether
     # or not the connection is secure. We may want to change this to identification by IP address rather than host name.
     oSelf.__oPropertyAccessTransactionLock.fAcquire();
@@ -215,7 +222,14 @@ class cHTTPClient(cWithCallbacks):
       if oURL.bSecure:
         assert oSelf.__ozCertificateStore, \
             "Making secure connections requires a certificate store.";
-        ozSSLContext = oSelf.__ozCertificateStore.foGetSSLContextForClientWithHostname(oURL.sHostname);
+        ozSSLContext = (
+          oSelf.__ozCertificateStore.foGetClientsideSSLContextWithoutVerification()
+          if oSelf.__bAllowUnverifiableCertificates else
+          oSelf.__ozCertificateStore.foGetClientsideSSLContextForHostname(
+            oURL.sHostname,
+            bCheckHostname = oSelf.__bCheckHostname
+          )
+        );
       else:
         ozSSLContext = None;
       fShowDebugOutput("Creating new cConnectionsToServerPool for %s" % oURL.sBase);
@@ -223,7 +237,6 @@ class cHTTPClient(cWithCallbacks):
         oServerBaseURL = oURL.oBase,
         uzMaxNumerOfConnectionsToServer = oSelf.__uzMaxNumerOfConnectionsToServer,
         ozSSLContext = ozSSLContext,
-        bCheckHostname = bCheckHostname,
       );
       oConnectionsToServerPool.fAddCallback("new connection", oSelf.__fHandleNewConnectionCallbackFromConnectionsToServerPool);
       oConnectionsToServerPool.fAddCallback("connect failed", oSelf.__fHandleConnectFailedCallbackFromConnectionsToServerPool);

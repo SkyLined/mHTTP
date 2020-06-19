@@ -1,6 +1,10 @@
 from mHTTP import cHTTPClientSideProxyServer, cHTTPClientUsingProxyServer;
 from oConsole import oConsole;
 from fTestClient import fTestClient;
+try: # SSL support is optional.
+  from mSSL import oCertificateAuthority as ozCertificateAuthority;
+except:
+  ozCertificateAuthority = None; # No SSL support
 
 def fTestProxyClientAndServer(
   oProxyServerURL,
@@ -13,6 +17,9 @@ def fTestProxyClientAndServer(
   oProxyServer = cHTTPClientSideProxyServer(
     szHostname = oProxyServerURL.sHostname,
     uzPort = oProxyServerURL.uPort,
+    ozServerSSLContext = (
+      ozCertificateAuthority.foGenerateServersideSSLContextForHostname(oProxyServerURL.sHostname)
+    ) if oProxyServerURL.bSecure else None,
     ozCertificateStore = oCertificateStore,
     ozInterceptSSLConnectionsCertificateAuthority = oInterceptSSLConnectionsCertificateAuthority,
     # Make sure the proxy server times out waiting for the HTTP server
@@ -23,7 +30,11 @@ def fTestProxyClientAndServer(
   if fzLogEvents: fzLogEvents(oProxyServer, "oProxyServer");
   oConsole.fPrint("  oProxyServer = ", str(oProxyServer));
   oConsole.fPrint("\xFE\xFE\xFE\xFE Creating a cHTTPClientUsingProxyServer instance... ", sPadding = "\xFE");
-  oHTTPClient = cHTTPClientUsingProxyServer(oProxyServerURL, oCertificateStore);
+  oHTTPClient = cHTTPClientUsingProxyServer(
+    oProxyServerURL = oProxyServerURL,
+    bAllowUnverifiableCertificatesForProxy = True,
+    ozCertificateStore = oCertificateStore
+  );
   if fzLogEvents: fzLogEvents(oHTTPClient, "oHTTPClient");
   
   oConsole.fPrint("\xFE\xFE\xFE\xFE Running client tests through proxy server... ", sPadding = "\xFE");

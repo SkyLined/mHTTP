@@ -113,7 +113,7 @@ try:
   oConsole.fOutput("  oCertificateAuthority = %s" % mSSL.oCertificateAuthority);
   mSSL.oCertificateAuthority.fReset();
   oConsole.fOutput(("\xFE\xFE\xFE\xFE Getting a certificate for %s " % oLocalSecureURL.sHostname).ljust(160, "\xFE"));
-  mSSL.oCertificateAuthority.foGenerateSSLContextForServerWithHostname(oLocalSecureURL.sHostname);
+  mSSL.oCertificateAuthority.foGenerateServersideSSLContextForHostname(oLocalSecureURL.sHostname);
   
   if bTestClient is not False:
     oConsole.fPrint("\xFE\xFE\xFE\xFE Creating a cHTTPClient instance ", sPadding = "\xFE");

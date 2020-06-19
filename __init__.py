@@ -5,11 +5,13 @@ from .cHTTPClientSideProxyServer import cHTTPClientSideProxyServer;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
 from .cHTTPServer import cHTTPServer;
 from .fsGetMediaTypeForExtension import fsGetMediaTypeForExtension;
+import mHTTPExceptions;
 # Pass down
-from mHTTPConnections import cHTTPConnection, cHTTPConnectionsToServerPool, \
-    cHTTPConnectionAcceptor, cHTTPHeader, cHTTPHeaders, \
-    cHTTPProtocolException, cHTTPRequest, cHTTPResponse, \
-    cInvalidMessageException, iHTTPMessage, cURL;
+from mHTTPConnections import \
+    cHTTPConnection, cHTTPConnectionsToServerPool, cHTTPConnectionAcceptor, \
+    cHTTPHeader, cHTTPHeaders, \
+    cHTTPRequest, cHTTPResponse, \
+    cURL;
 
 __all__ = [
   "cHTTPClient",
@@ -17,16 +19,14 @@ __all__ = [
   "cHTTPClientUsingProxyServer",
   "cHTTPServer",
   "fsGetMediaTypeForExtension",
+  "mHTTPExceptions",
   # Pass down from mHTTPConnection
   "cHTTPConnection",
   "cHTTPConnectionsToServerPool",
   "cHTTPConnectionAcceptor",
   "cHTTPHeader", 
   "cHTTPHeaders", 
-  "cHTTPProtocolException",
   "cHTTPRequest",
   "cHTTPResponse",
-  "cInvalidMessageException",
-  "iHTTPMessage",
   "cURL",
 ];
