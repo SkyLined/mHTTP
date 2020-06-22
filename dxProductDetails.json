@@ -8,12 +8,12 @@
     "mWindowsSDK"
   ], 
   "asOptionalProductNames": [
-    "mDebugOutput",
+    "mDebugOutput", 
     "mSSL", 
     "mWindowsSDK", 
     "oConsole"
   ], 
-  "oProductVersion": "2020-06-18 09:10", 
+  "oProductVersion": "2020-06-22 15:53", 
   "oRepository": {
     "sBranch": "master", 
     "sRepositoryName": "mHTTP", 
