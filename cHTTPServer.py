@@ -13,7 +13,7 @@ except: # Do nothing if not available.
 from mHTTPConnections import cHTTPConnection, cHTTPConnectionAcceptor, cHTTPResponse, cURL;
 from mMultiThreading import cLock, cThread, cWithCallbacks;
 
-from .mHTTPExceptions import *;
+from .mExceptions import *;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
@@ -232,17 +232,17 @@ class cHTTPServer(cWithCallbacks):
               );
             else:
               bTransactionStarted = oConnection.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds);
-          except cShutdownException as oException:
+          except cTCPIPConnectionShutdownException as oException:
             fShowDebugOutput("Connection %s was shutdown." % oConnection);
             if not bTransactionStarted:
               assert oConnection.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds), \
                   "Cannot start a transaction to disconnect the connection!?";
             oConnection.fDisconnect();
             break;
-        except cDisconnectedException as oException:
+        except cTCPIPConnectionDisconnectedException as oException:
           fShowDebugOutput("Connection %s was disconnected." % oConnection);
           break;
-        except cTimeoutException as oException:
+        except cTCPIPDataTimeoutException as oException:
           fShowDebugOutput("Wait for request from %s timed out: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("idle timeout", oConnection);
           oConnection.fStop();
@@ -256,21 +256,21 @@ class cHTTPServer(cWithCallbacks):
         fShowDebugOutput("Reading request from %s..." % oConnection);
         try:
           oRequest = oConnection.foReceiveRequest(bStartTransaction = False);
-        except cShutdownException as oException:
+        except cTCPIPConnectionShutdownException as oException:
           fShowDebugOutput("Shutdown while reading request from %s: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("request error", oConnection, oException);
           oConnection.fDisconnect();
           break;
-        except cDisconnectedException as oException:
+        except cTCPIPConnectionDisconnectedException as oException:
           fShowDebugOutput("Disconnected while reading request from %s: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("request error", oConnection, oException);
           break;
-        except cInvalidMessageException as oException:
+        except cHTTPInvalidMessageException as oException:
           fShowDebugOutput("Invalid request from %s: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("request error", oConnection, oException);
           oConnection.fTerminate();
           break;
-        except cTimeoutException as oException:
+        except cTCPIPDataTimeoutException as oException:
           fShowDebugOutput("Reading request from %s timed out: %s." % (oConnection, oException));
           oSelf.fFireCallbacks("request error", oConnection, oException);
           oConnection.fTerminate();
@@ -291,11 +291,11 @@ class cHTTPServer(cWithCallbacks):
         try:
           oConnection.fSendResponse(oResponse, bEndTransaction = True);
         except Exception as oException:
-          if isinstance(oException, cShutdownException):
+          if isinstance(oException, cTCPIPConnectionShutdownException):
             fShowDebugOutput("Connection %s was shutdown while sending response %s." % (oConnection, oResponse));
-          elif isinstance(oException, cDisconnectedException):
+          elif isinstance(oException, cTCPIPConnectionDisconnectedException):
             fShowDebugOutput("Connection %s was disconnected while sending response %s." % (oConnection, oResponse));
-          elif isinstance(oException, cTimeoutException):
+          elif isinstance(oException, cTCPIPDataTimeoutException):
             fShowDebugOutput("Sending response to %s timed out." % (oConnection, oException));
           else:
             raise;

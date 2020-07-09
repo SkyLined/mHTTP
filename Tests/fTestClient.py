@@ -1,6 +1,6 @@
 import socket, threading;
 from mHTTP import *;
-from mHTTP.mHTTPExceptions import *;
+from mHTTP.mExceptions import *;
 from mHTTPConnections import cHTTPConnection;
 from mMultiThreading import cThread;
 from oConsole import oConsole;
@@ -197,15 +197,15 @@ def fTestClient(
   oInvalidHTTPMessageServerThread.fStart(bVital = False);
   
   for (oURL, cException, uStatusCode, uNumberOfRequests) in (
-    (oUnknownHostnameURL,         cUnknownHostnameException,    400, 1),
-    (oInvalidAddressURL,          cInvalidAddressException,     400, 1),
-    (oConnectionRefusedURL,       cConnectionRefusedException,  502, 1),
-    (oConnectionTimeoutURL,       cTimeoutException,            504, 1),
-    (oConnectionDisconnectedURL,  cDisconnectedException,       502, 1),
-    (oConnectionShutdownURL,      cShutdownException,           502, 1),
-    (oResponseTimeoutURL,         cTimeoutException,            504, 1),
-    (oOutOfBandDataURL,           cOutOfBandDataException,      502, 2),
-    (oInvalidHTTPMessageURL,      cInvalidMessageException,     502, 1),
+    (oUnknownHostnameURL,         cDNSUnknownHostnameException,                400, 1),
+    (oInvalidAddressURL,          cTCPIPInvalidAddressException,                 400, 1),
+    (oConnectionRefusedURL,       cTCPIPConnectionRefusedException,         502, 1),
+    (oConnectionTimeoutURL,       cTCPIPConnectTimeoutException,            504, 1),
+    (oConnectionDisconnectedURL,  cTCPIPConnectionDisconnectedException,    502, 1),
+    (oConnectionShutdownURL,      cTCPIPConnectionShutdownException,        502, 1),
+    (oResponseTimeoutURL,         cTCPIPDataTimeoutException,               504, 1),
+    (oOutOfBandDataURL,           cHTTPOutOfBandDataException,              502, 2),
+    (oInvalidHTTPMessageURL,      cHTTPInvalidMessageException,             502, 1),
   ):
     oConsole.fPrint("\xFE\xFE\xFE\xFE Making a test request to %s " % oURL, sPadding = "\xFE");
     if oHTTPClient.__class__.__name__ == "cHTTPClient":

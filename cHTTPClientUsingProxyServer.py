@@ -11,7 +11,7 @@ except: # Do nothing if not available.
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
 from .cHTTPClient import cHTTPClient;
-from .mHTTPExceptions import *;
+from .mExceptions import *;
 
 from mMultiThreading import cLock, cWithCallbacks;
 from mHTTPConnections import cHTTPConnection, cHTTPRequest, cHTTPHeaders;
