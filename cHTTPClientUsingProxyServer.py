@@ -10,15 +10,14 @@ except: # Do nothing if not available.
   fEnableAllDebugOutput = lambda: None;
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
-from .cHTTPClient import cHTTPClient;
-from .mExceptions import *;
-
 from mMultiThreading import cLock, cWithCallbacks;
 from mHTTPConnections import cHTTPConnection, cHTTPRequest, cHTTPHeaders;
 try: # SSL support is optional.
   from mSSL import cCertificateStore as czCertificateStore;
 except:
   czCertificateStore = None; # No SSL support
+
+from .mExceptions import *;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
