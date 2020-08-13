@@ -67,7 +67,7 @@ def fxFirstNonNone(*txArguments):
   return None;
 
 class cHTTPClientSideProxyServer(cWithCallbacks):
-  uzDefaultMaxNumerOfConnectionsToChainedProxy = 10;
+  uzDefaultMaxNumberOfConnectionsToChainedProxy = 10;
   nzDefaultSecureConnectionToChainedProxyTimeoutInSeconds = 5;
   
   nzDefaultConnectTimeoutInSeconds = None;
@@ -86,7 +86,7 @@ class cHTTPClientSideProxyServer(cWithCallbacks):
     ozChainedProxyURL = None,
     bAllowUnverifiableCertificatesForChainedProxy = False,
     bCheckChainedProxyHostname = True,
-    uzMaxNumerOfConnectionsToChainedProxy = None,
+    uzMaxNumberOfConnectionsToChainedProxy = None,
     # Connections to proxy use nzConnectTimeoutInSeconds
     nzSecureConnectionToChainedProxyTimeoutInSeconds = None,
     # Connections to proxy use nzTransactionTimeoutInSeconds
@@ -100,7 +100,7 @@ class cHTTPClientSideProxyServer(cWithCallbacks):
     
     nzSecureConnectionPipeTotalDurationTimeoutInSeconds = None,
     nzSecureConnectionPipeIdleTimeoutInSeconds = None,
-    uzMaxNumerOfConnectionsToServer = None,
+    uzMaxNumberOfConnectionsToServer = None,
   ):
     ozCertificateStore = (
       ozCertificateStore if ozCertificateStore else
@@ -150,7 +150,7 @@ class cHTTPClientSideProxyServer(cWithCallbacks):
         bAllowUnverifiableCertificatesForProxy = bAllowUnverifiableCertificatesForChainedProxy,
         bCheckProxyHostname = bCheckChainedProxyHostname,
         ozCertificateStore = ozCertificateStore,
-        uzMaxNumerOfConnectionsToProxy = fxFirstNonNone(uzMaxNumerOfConnectionsToChainedProxy, oSelf.uzDefaultMaxNumerOfConnectionsToChainedProxy),
+        uzMaxNumberOfConnectionsToProxy = fxFirstNonNone(uzMaxNumberOfConnectionsToChainedProxy, oSelf.uzDefaultMaxNumberOfConnectionsToChainedProxy),
         nzConnectToProxyTimeoutInSeconds = oSelf.__nzConnectTimeoutInSeconds,
         nzSecureConnectionToProxyTimeoutInSeconds = fxFirstNonNone(nzSecureConnectionToChainedProxyTimeoutInSeconds, oSelf.nzDefaultSecureConnectionToChainedProxyTimeoutInSeconds),
         nzSecureConnectionToServerTimeoutInSeconds = oSelf.__nzSecureTimeoutInSeconds,
@@ -161,7 +161,7 @@ class cHTTPClientSideProxyServer(cWithCallbacks):
     else:
       oSelf.oHTTPClient = cHTTPClient(
         ozCertificateStore = ozCertificateStore,
-        uzMaxNumerOfConnectionsToServer = uzMaxNumerOfConnectionsToServer,
+        uzMaxNumberOfConnectionsToServer = uzMaxNumberOfConnectionsToServer,
         nzConnectTimeoutInSeconds = oSelf.__nzConnectTimeoutInSeconds,
         nzSecureTimeoutInSeconds = oSelf.__nzSecureTimeoutInSeconds,
         nzTransactionTimeoutInSeconds = oSelf.__nzTransactionTimeoutInSeconds,

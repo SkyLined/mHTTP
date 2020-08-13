@@ -27,14 +27,14 @@ def fxFirstNonNone(*txArguments):
   return None;
 
 class cHTTPClient(cWithCallbacks):
-  uzDefaultMaxNumerOfConnectionsToServer = 10;
+  uzDefaultMaxNumberOfConnectionsToServer = 10;
   nzDefaultConnectTimeoutInSeconds = 10;
   nzDefaultSecureTimeoutInSeconds = 5;
   nzDefaultTransactionTimeoutInSeconds = 10;
   
   @ShowDebugOutput
   def __init__(oSelf,
-    ozCertificateStore = None, uzMaxNumerOfConnectionsToServer = None,
+    ozCertificateStore = None, uzMaxNumberOfConnectionsToServer = None,
     nzConnectTimeoutInSeconds = None, nzSecureTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None,
     bAllowUnverifiableCertificates = False, bCheckHostname = True,
   ):
@@ -43,7 +43,7 @@ class cHTTPClient(cWithCallbacks):
       czCertificateStore() if czCertificateStore else
       None
     );
-    oSelf.__uzMaxNumerOfConnectionsToServer = uzMaxNumerOfConnectionsToServer or oSelf.uzDefaultMaxNumerOfConnectionsToServer;
+    oSelf.__uzMaxNumberOfConnectionsToServer = uzMaxNumberOfConnectionsToServer or oSelf.uzDefaultMaxNumberOfConnectionsToServer;
     # Timeouts can be provided through class default, instance defaults, or method call arguments.
     oSelf.__nzConnectTimeoutInSeconds = fxFirstNonNone(nzConnectTimeoutInSeconds, oSelf.nzDefaultConnectTimeoutInSeconds);
     oSelf.__nzSecureTimeoutInSeconds = fxFirstNonNone(nzSecureTimeoutInSeconds, oSelf.nzDefaultSecureTimeoutInSeconds);
@@ -235,7 +235,7 @@ class cHTTPClient(cWithCallbacks):
       fShowDebugOutput("Creating new cConnectionsToServerPool for %s" % oURL.sBase);
       oConnectionsToServerPool = cHTTPConnectionsToServerPool(
         oServerBaseURL = oURL.oBase,
-        uzMaxNumerOfConnectionsToServer = oSelf.__uzMaxNumerOfConnectionsToServer,
+        uzMaxNumberOfConnectionsToServer = oSelf.__uzMaxNumberOfConnectionsToServer,
         ozSSLContext = ozSSLContext,
       );
       oConnectionsToServerPool.fAddCallback("new connection", oSelf.__fHandleNewConnectionCallbackFromConnectionsToServerPool);

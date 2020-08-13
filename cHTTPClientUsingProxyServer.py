@@ -41,7 +41,7 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
   def __init__(oSelf,
     oProxyServerURL,
     bAllowUnverifiableCertificatesForProxy = False, bCheckProxyHostname = True,
-    ozCertificateStore = None, uzMaxNumerOfConnectionsToProxy = None,
+    ozCertificateStore = None, uzMaxNumberOfConnectionsToProxy = None,
     nzConnectToProxyTimeoutInSeconds = None, nzSecureConnectionToProxyTimeoutInSeconds = None,
     nzSecureConnectionToServerTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None,
     bAllowUnverifiableCertificates = False, bCheckHostname = True,
@@ -57,7 +57,7 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
     );
     assert not oProxyServerURL.bSecure or oSelf.__ozCertificateStore, \
         "Cannot use a secure proxy without the mSSL module!";
-    oSelf.__uzMaxNumerOfConnectionsToProxy = uzMaxNumerOfConnectionsToProxy or oSelf.uzDefaultMaxNumberOfConnectionsToProxy;
+    oSelf.__uzMaxNumberOfConnectionsToProxy = uzMaxNumberOfConnectionsToProxy or oSelf.uzDefaultMaxNumberOfConnectionsToProxy;
     # Timeouts for this instance default to the timeouts specified for the class.
     oSelf.__nzConnectToProxyTimeoutInSeconds = fxFirstNonNone(nzConnectToProxyTimeoutInSeconds, oSelf.nzDefaultConnectToProxyTimeoutInSeconds);
     oSelf.__nzSecureConnectionToProxyTimeoutInSeconds = fxFirstNonNone(nzSecureConnectionToProxyTimeoutInSeconds, oSelf.nzDefaultSecureConnectionToProxyTimeoutInSeconds);
@@ -274,8 +274,8 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
       return ozConnection;
     # Try to create a new connection if possible:
     if (
-      oSelf.__uzMaxNumerOfConnectionsToProxy is not None
-      or oSelf.__fuCountAllConnections() < oSelf.__uzMaxNumerOfConnectionsToProxy
+      oSelf.__uzMaxNumberOfConnectionsToProxy is not None
+      or oSelf.__fuCountAllConnections() < oSelf.__uzMaxNumberOfConnectionsToProxy
     ):
       ozConnection = oSelf.__fozCreateNewConnectionToProxyAndStartTransaction(
         nzConnectTimeoutInSeconds = oSelf.__nzConnectToProxyTimeoutInSeconds,
