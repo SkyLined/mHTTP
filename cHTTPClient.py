@@ -142,13 +142,28 @@ class cHTTPClient(cWithCallbacks):
   def fozGetResponseForURL(oSelf,
     oURL,
     szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
+    uzMaxStatusLineSize = None,
+    uzMaxHeaderNameSize = None,
+    uzMaxHeaderValueSize = None,
+    uzMaxNumberOfHeaders = None,
+    uzMaxBodySize = None,
+    uzMaxChunkSize = None,
+    uzMaxNumberOfChunks = None,
     uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
     oRequest = oSelf.foGetRequestForURL(
       oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks
     );
     ozResponse = oSelf.fozGetResponseForRequestAndURL(
-      oRequest, oURL, uzMaximumNumberOfChunksBeforeDisconnecting
+      oRequest, oURL,
+      uzMaxStatusLineSize = uzMaxStatusLineSize,
+      uzMaxHeaderNameSize = uzMaxHeaderNameSize,
+      uzMaxHeaderValueSize = uzMaxHeaderValueSize,
+      uzMaxNumberOfHeaders = uzMaxNumberOfHeaders,
+      uzMaxBodySize = uzMaxBodySize,
+      uzMaxChunkSize = uzMaxChunkSize,
+      uzMaxNumberOfChunks = uzMaxNumberOfChunks,
+      uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
     );
     return ozResponse;
   
@@ -156,13 +171,28 @@ class cHTTPClient(cWithCallbacks):
   def ftozGetRequestAndResponseForURL(oSelf,
     oURL,
     szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
+    uzMaxStatusLineSize = None,
+    uzMaxHeaderNameSize = None,
+    uzMaxHeaderValueSize = None,
+    uzMaxNumberOfHeaders = None,
+    uzMaxBodySize = None,
+    uzMaxChunkSize = None,
+    uzMaxNumberOfChunks = None,
     uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
     oRequest = oSelf.foGetRequestForURL(
       oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks
     );
     ozResponse = oSelf.fozGetResponseForRequestAndURL(
-      oRequest, oURL, uzMaximumNumberOfChunksBeforeDisconnecting,
+      oRequest, oURL,
+      uzMaxStatusLineSize = uzMaxStatusLineSize,
+      uzMaxHeaderNameSize = uzMaxHeaderNameSize,
+      uzMaxHeaderValueSize = uzMaxHeaderValueSize,
+      uzMaxNumberOfHeaders = uzMaxNumberOfHeaders,
+      uzMaxBodySize = uzMaxBodySize,
+      uzMaxChunkSize = uzMaxChunkSize,
+      uzMaxNumberOfChunks = uzMaxNumberOfChunks,
+      uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
     );
     return (oRequest, ozResponse);
   
@@ -192,6 +222,13 @@ class cHTTPClient(cWithCallbacks):
   @ShowDebugOutput
   def fozGetResponseForRequestAndURL(oSelf,
     oRequest, oURL,
+    uzMaxStatusLineSize = None,
+    uzMaxHeaderNameSize = None,
+    uzMaxHeaderValueSize = None,
+    uzMaxNumberOfHeaders = None,
+    uzMaxBodySize = None,
+    uzMaxChunkSize = None,
+    uzMaxNumberOfChunks = None,
     uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
     oConnectionsToServerPool = oSelf.__foGetConnectionsToServerPoolForURL(oURL);
@@ -200,6 +237,13 @@ class cHTTPClient(cWithCallbacks):
       nzConnectTimeoutInSeconds = oSelf.__nzConnectTimeoutInSeconds,
       nzSecureTimeoutInSeconds = oSelf.__nzSecureTimeoutInSeconds,
       nzTransactionTimeoutInSeconds = oSelf.__nzTransactionTimeoutInSeconds,
+      uzMaxStatusLineSize = uzMaxStatusLineSize,
+      uzMaxHeaderNameSize = uzMaxHeaderNameSize,
+      uzMaxHeaderValueSize = uzMaxHeaderValueSize,
+      uzMaxNumberOfHeaders = uzMaxNumberOfHeaders,
+      uzMaxBodySize = uzMaxBodySize,
+      uzMaxChunkSize = uzMaxChunkSize,
+      uzMaxNumberOfChunks = uzMaxNumberOfChunks,
       uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
     );
     if oSelf.__bStopping:
