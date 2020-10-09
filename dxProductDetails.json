@@ -8,6 +8,7 @@
     "mWindowsSDK"
   ], 
   "asOptionalProductNames": [
+    "cFileSystemItem",
     "mDebugOutput", 
     "mSSL", 
     "mWindowsSDK", 

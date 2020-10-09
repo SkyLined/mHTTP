@@ -1,11 +1,13 @@
 base64
 binascii
+bz2
 collections
 contextlib
 cStringIO
 ctypes
 datetime
 dis
+fnmatch
 future__
 gc
 hashlib
@@ -13,6 +15,7 @@ heapq
 imp
 inspect
 itertools
+io
 keyword
 math
 msvcrt
@@ -22,6 +25,7 @@ platform
 Queue
 random
 select
+shutil
 socket
 ssl
 string
@@ -37,4 +41,5 @@ token
 tokenize
 urllib
 urlparse
+zipfile
 zlib
