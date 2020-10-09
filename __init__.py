@@ -4,7 +4,7 @@ from .cHTTPClient import cHTTPClient;
 from .cHTTPClientSideProxyServer import cHTTPClientSideProxyServer;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
 from .cHTTPServer import cHTTPServer;
-from .fsGetMediaTypeForExtension import fsGetMediaTypeForExtension;
+from .fs0GetMediaTypeForExtension import fs0GetMediaTypeForExtension;
 import mExceptions;
 # Pass down
 from mHTTPConnections import \
@@ -18,7 +18,7 @@ __all__ = [
   "cHTTPClientSideProxyServer",
   "cHTTPClientUsingProxyServer",
   "cHTTPServer",
-  "fsGetMediaTypeForExtension",
+  "fs0GetMediaTypeForExtension",
   "mExceptions",
   # Pass down from mHTTPConnection
   "cHTTPConnection",
