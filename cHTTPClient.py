@@ -15,6 +15,8 @@ try: # SSL support is optional.
 except:
   czCertificateStore = None; # No SSL support
 
+from .iHTTPClient import iHTTPClient;
+
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
 # bug, where "too long" is defined by the following value:
@@ -26,7 +28,7 @@ def fxFirstNonNone(*txArguments):
       return xArgument;
   return None;
 
-class cHTTPClient(cWithCallbacks):
+class cHTTPClient(iHTTPClient, cWithCallbacks):
   uzDefaultMaxNumberOfConnectionsToServer = 10;
   nzDefaultConnectTimeoutInSeconds = 10;
   nzDefaultSecureTimeoutInSeconds = 5;
@@ -64,72 +66,64 @@ class cHTTPClient(cWithCallbacks):
       "connect failed", "new connection",
       "request sent", "response received", "request sent and response received",
       "connection terminated",
-      "terminated");
+      "terminated",
+    );
+  
+  @property
+  def bStopping(oSelf):
+    return oSelf.__bStopping;
+  
+  @ShowDebugOutput
+  def fStop(oSelf):
+    oSelf.__oPropertyAccessTransactionLock.fAcquire();
+    try:
+      if oSelf.bTerminated:
+        return fShowDebugOutput("Already terminated");
+      if oSelf.__bStopping:
+        return fShowDebugOutput("Already stopping");
+      fShowDebugOutput("Stopping...");
+      # Prevent any new cHTTPConnectionsToServerPool instances from being created.
+      oSelf.__bStopping = True;
+      # Grab a list of active cHTTPConnectionsToServerPool instances that need to be stopped.
+      aoConnectionsToServerPools = oSelf.__doConnectionsToServerPool_by_sProtocolHostPort.values()
+    finally:
+      oSelf.__oPropertyAccessTransactionLock.fRelease();
+    if len(aoConnectionsToServerPools) == 0:
+      # We stopped when there were no connections: we are terminated.
+      fShowDebugOutput("Terminated.");
+      oSelf.__oTerminatedLock.fRelease();
+      oSelf.fFireEvent("terminated");
+    else:
+      fShowDebugOutput("Stopping connections to server pools...");
+      # Stop all cHTTPConnectionsToServerPool instances
+      for oConnectionsToServerPool in aoConnectionsToServerPools:
+        oConnectionsToServerPool.fStop();
   
   @property
   def bTerminated(oSelf):
     return not oSelf.__oTerminatedLock.bLocked;
   
-  def foGetProxyServerURL(oSelf):
-    return None;
-  
   @ShowDebugOutput
-  def __fCheckForTermination(oSelf):
+  def fTerminate(oSelf):
     oSelf.__oPropertyAccessTransactionLock.fAcquire();
     try:
       if oSelf.bTerminated:
-        return fShowDebugOutput("Already terminated");
-      if not oSelf.__bStopping:
-        return fShowDebugOutput("Not stopping");
-      if len(oSelf.__doConnectionsToServerPool_by_sProtocolHostPort) > 0:
-        return fShowDebugOutput("There are open connections to %d servers." % len(oSelf.__doConnectionsToServerPool_by_sProtocolHostPort));
-      oSelf.__oTerminatedLock.fRelease();
-    finally:
-      oSelf.__oPropertyAccessTransactionLock.fRelease();
-    fShowDebugOutput("%s terminating." % oSelf.__class__.__name__);
-    oSelf.fFireCallbacks("terminated");
-  
-  @ShowDebugOutput
-  def fStop(oSelf):
-    if oSelf.bTerminated:
-      return fShowDebugOutput("Already terminated");
-    if oSelf.__bStopping:
-      return fShowDebugOutput("Already stopping");
-    fShowDebugOutput("Stopping...");
-    # Prevent any new cHTTPConnectionsToServerPool instances from being created.
-    oSelf.__bStopping = True;
-    # Grab a list of active cHTTPConnectionsToServerPool instances that need to be stopped.
-    aoConnectionsToServerPools = oSelf.__doConnectionsToServerPool_by_sProtocolHostPort.values()
-    if aoConnectionsToServerPools:
-      fShowDebugOutput("Stopping connections to server pools...");
-      # Stop all cHTTPConnectionsToServerPool instances
-      for oConnectionsToServerPool in aoConnectionsToServerPools:
-        oConnectionsToServerPool.fStop();
-    else:
-      # This instance has terminated if there were no connections-to-server
-      # pools when we set bStopping to True. However, we need to fire events
-      # to report this: __fCheckForTermination which will detect and report it.
-      oSelf.__fCheckForTermination();
-    return;
-  
-  @ShowDebugOutput
-  def fTerminate(oSelf):
-    if oSelf.bTerminated:
-      return fShowDebugOutput("Already terminated.");
-    fShowDebugOutput("Terminating...");
-    oSelf.__bStopping = True;
-    oSelf.__oPropertyAccessTransactionLock.fAcquire();
-    try:
+        return fShowDebugOutput("Already terminated.");
+      fShowDebugOutput("Terminating...");
+      oSelf.__bStopping = True;
       # Grab a list of active cHTTPConnectionsToServerPool instances that need to be terminated.
       aoConnectionsToServerPools = oSelf.__doConnectionsToServerPool_by_sProtocolHostPort.values();
     finally:
       oSelf.__oPropertyAccessTransactionLock.fRelease();
     # Terminate all cHTTPConnectionsToServerPool instances
-    if aoConnectionsToServerPools:
+    if len(aoConnectionsToServerPools) == 0:
+      fShowDebugOutput("Terminated.");
+      oSelf.__oTerminatedLock.fRelease();
+      oSelf.fFireEvent("terminated");
+    else:
       fShowDebugOutput("Terminating %d connections to server pools..." % len(aoConnectionsToServerPools));
       for oConnectionsToServerPool in aoConnectionsToServerPools:
         oConnectionsToServerPool.fTerminate();
-    return;
   
   @ShowDebugOutput
   def fWait(oSelf):
@@ -138,86 +132,8 @@ class cHTTPClient(cWithCallbacks):
   def fbWait(oSelf, nzTimeoutInSeconds):
     return oSelf.__oTerminatedLock.fbWait(nzTimeoutInSeconds);
   
-  @ShowDebugOutput
-  def fozGetResponseForURL(oSelf,
-    oURL,
-    szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    uzMaxStatusLineSize = None,
-    uzMaxHeaderNameSize = None,
-    uzMaxHeaderValueSize = None,
-    uzMaxNumberOfHeaders = None,
-    uzMaxBodySize = None,
-    uzMaxChunkSize = None,
-    uzMaxNumberOfChunks = None,
-    uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
-  ):
-    oRequest = oSelf.foGetRequestForURL(
-      oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks
-    );
-    ozResponse = oSelf.fozGetResponseForRequestAndURL(
-      oRequest, oURL,
-      uzMaxStatusLineSize = uzMaxStatusLineSize,
-      uzMaxHeaderNameSize = uzMaxHeaderNameSize,
-      uzMaxHeaderValueSize = uzMaxHeaderValueSize,
-      uzMaxNumberOfHeaders = uzMaxNumberOfHeaders,
-      uzMaxBodySize = uzMaxBodySize,
-      uzMaxChunkSize = uzMaxChunkSize,
-      uzMaxNumberOfChunks = uzMaxNumberOfChunks,
-      uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
-    );
-    return ozResponse;
-  
-  @ShowDebugOutput
-  def ftozGetRequestAndResponseForURL(oSelf,
-    oURL,
-    szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    uzMaxStatusLineSize = None,
-    uzMaxHeaderNameSize = None,
-    uzMaxHeaderValueSize = None,
-    uzMaxNumberOfHeaders = None,
-    uzMaxBodySize = None,
-    uzMaxChunkSize = None,
-    uzMaxNumberOfChunks = None,
-    uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
-  ):
-    oRequest = oSelf.foGetRequestForURL(
-      oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks
-    );
-    ozResponse = oSelf.fozGetResponseForRequestAndURL(
-      oRequest, oURL,
-      uzMaxStatusLineSize = uzMaxStatusLineSize,
-      uzMaxHeaderNameSize = uzMaxHeaderNameSize,
-      uzMaxHeaderValueSize = uzMaxHeaderValueSize,
-      uzMaxNumberOfHeaders = uzMaxNumberOfHeaders,
-      uzMaxBodySize = uzMaxBodySize,
-      uzMaxChunkSize = uzMaxChunkSize,
-      uzMaxNumberOfChunks = uzMaxNumberOfChunks,
-      uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
-    );
-    return (oRequest, ozResponse);
-  
-  @ShowDebugOutput
-  def foGetRequestForURL(oSelf,
-    oURL,
-    szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    ozAdditionalHeaders = None, bAutomaticallyAddContentLengthHeader = False
-  ):
-    oRequest = cHTTPConnection.cHTTPRequest(
-      sURL = oURL.sRelative,
-      szMethod = szMethod,
-      szVersion = szVersion,
-      ozHeaders = ozHeaders,
-      szBody = szBody,
-      szData = szData,
-      azsBodyChunks = azsBodyChunks,
-      ozAdditionalHeaders = ozAdditionalHeaders,
-      bAutomaticallyAddContentLengthHeader = bAutomaticallyAddContentLengthHeader
-    );
-    if not oRequest.oHeaders.fozGetUniqueHeaderForName("Host"):
-      oRequest.oHeaders.foAddHeaderForNameAndValue("Host", oURL.sHostnameAndPort);
-    if not oRequest.oHeaders.fozGetUniqueHeaderForName("Accept-Encoding"):
-      oRequest.oHeaders.foAddHeaderForNameAndValue("Accept-Encoding", ", ".join(oRequest.asSupportedCompressionTypes));
-    return oRequest;
+  def foGetProxyServerURLForURL(oSelf, oURL):
+    return None;
   
   @ShowDebugOutput
   def fozGetResponseForRequestAndURL(oSelf,
@@ -231,7 +147,13 @@ class cHTTPClient(cWithCallbacks):
     uzMaxNumberOfChunks = None,
     uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
+    if oSelf.__bStopping:
+      fShowDebugOutput("Stopping.");
+      return None;
     oConnectionsToServerPool = oSelf.__foGetConnectionsToServerPoolForURL(oURL);
+    if oSelf.__bStopping:
+      fShowDebugOutput("Stopping.");
+      return None;
     ozResponse = oConnectionsToServerPool.fozSendRequestAndReceiveResponse(
       oRequest,
       nzConnectTimeoutInSeconds = oSelf.__nzConnectTimeoutInSeconds,
@@ -325,9 +247,17 @@ class cHTTPClient(cWithCallbacks):
           break;
       else:
         raise AssertionError("A cConnectionsToServerPool instance reported that it terminated, but we were not aware it existed");
+      # Return if we are not stopping or if there are other connections open:
+      if not oSelf.__bStopping:
+        return;
+      if len(oSelf.__doConnectionsToServerPool_by_sProtocolHostPort) > 0:
+        return;
     finally:
       oSelf.__oPropertyAccessTransactionLock.fRelease();
-    oSelf.__fCheckForTermination();
+    # We are stopping and the last connection just terminated: we are terminated.
+    fShowDebugOutput("Terminated.");
+    oSelf.__oTerminatedLock.fRelease();
+    oSelf.fFireCallbacks("terminated");
   
   def fasGetDetails(oSelf):
     # This is done without a property lock, so race-conditions exist and it
@@ -338,10 +268,3 @@ class cHTTPClient(cWithCallbacks):
       "connected to %d servers" % len(oSelf.__doConnectionsToServerPool_by_sProtocolHostPort),
       "stopping" if oSelf.__bStopping else None,
     ] if s];
-  
-  def __repr__(oSelf):
-    sModuleName = ".".join(oSelf.__class__.__module__.split(".")[:-1]);
-    return "<%s.%s#%X|%s>" % (sModuleName, oSelf.__class__.__name__, id(oSelf), "|".join(oSelf.fasGetDetails()));
-  
-  def __str__(oSelf):
-    return "%s#%X{%s}" % (oSelf.__class__.__name__, id(oSelf), ", ".join(oSelf.fasGetDetails()));

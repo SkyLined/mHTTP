@@ -18,6 +18,7 @@ except:
   czCertificateStore = None; # No SSL support
 
 from .mExceptions import *;
+from .iHTTPClient import iHTTPClient;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
@@ -30,7 +31,7 @@ def fxFirstNonNone(*txArguments):
       return xArgument;
   return None;
 
-class cHTTPClientUsingProxyServer(cWithCallbacks):
+class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
   uzDefaultMaxNumberOfConnectionsToProxy = 10;
   nzDefaultConnectToProxyTimeoutInSeconds = 10;
   nzDefaultSecureConnectionToProxyTimeoutInSeconds = 5;
@@ -93,14 +94,13 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
       bLocked = True
     );
     
-    oSelf.fAddEvents("new connection", "request sent", "response received", "request sent and response received", "secure connection established", "connection terminated", "terminated");
-  
-  @property
-  def bTerminated(oSelf):
-    return not oSelf.__oTerminatedLock.bLocked;
-  
-  def foGetProxyServerURL(oSelf):
-    return oSelf.__oProxyServerURL.foClone();
+    oSelf.fAddEvents(
+      "connect failed", "new connection", # connect failed currently does not fire: assertions are triggered instead.
+      "request sent", "response received", "request sent and response received",
+      "secure connection established",
+      "connection terminated",
+      "terminated",
+    );
   
   def __faoGetAllConnections(oSelf):
     return oSelf.__aoConnectionsToProxyNotConnectedToAServer + oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort.values();
@@ -108,38 +108,58 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
   def __fuCountAllConnections(oSelf):
     return len(oSelf.__aoConnectionsToProxyNotConnectedToAServer) + len(oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort);
   
+  @property
+  def bStopping(oSelf):
+    return oSelf.__bStopping;
+  
   @ShowDebugOutput
   def fStop(oSelf):
-    if oSelf.bTerminated:
-      return fShowDebugOutput("Already terminated.");
-    if oSelf.__bStopping:
-      return fShowDebugOutput("Already stopping.");
-    fShowDebugOutput("Stopping...");
-    oSelf.__bStopping = True;
     oSelf.__oPropertyAccessTransactionLock.fAcquire();
     try:
+      if oSelf.bTerminated:
+        return fShowDebugOutput("Already terminated.");
+      if oSelf.__bStopping:
+        return fShowDebugOutput("Already stopping.");
+      fShowDebugOutput("Stopping...");
+      oSelf.__bStopping = True;
       aoConnections = oSelf.__faoGetAllConnections();
     finally:
       oSelf.__oPropertyAccessTransactionLock.fRelease();
     fShowDebugOutput("Stopping connections to proxy server...");
-    for oConnection in aoConnections:
-      oConnection.fStop();
+    if len(aoConnections) == 0:
+      # We stopped when there were no connections: we are terminated.
+      fShowDebugOutput("Terminated.");
+      oSelf.__oTerminatedLock.fRelease();
+      oSelf.fFireEvent("terminated");
+    else:
+      for oConnection in aoConnections:
+        oConnection.fStop();
+  
+  @property
+  def bTerminated(oSelf):
+    return not oSelf.__oTerminatedLock.bLocked;
   
   @ShowDebugOutput
   def fTerminate(oSelf):
-    # We'll run through all the steps no matter what.
-    if oSelf.bTerminated:
-      fShowDebugOutput("Already terminated.");
-      return True;
-    oSelf.__bStopping = True;
     oSelf.__oPropertyAccessTransactionLock.fAcquire();
     try:
+      # We'll run through all the steps no matter what.
+      if oSelf.bTerminated:
+        fShowDebugOutput("Already terminated.");
+        return True;
+      oSelf.__bStopping = True;
       aoConnections = oSelf.__faoGetAllConnections();
     finally:
       oSelf.__oPropertyAccessTransactionLock.fRelease();
-    for oConnection in aoConnections:
-      fShowDebugOutput("Terminating connection to proxy server %s..." % oConnection);
-      oConnection.fTerminate();
+    if len(aoConnections) == 0:
+      # We terminated when there were no connections: we are terminated.
+      fShowDebugOutput("Terminated.");
+      oSelf.__oTerminatedLock.fRelease();
+      oSelf.fFireEvent("terminated");
+    else:
+      for oConnection in aoConnections:
+        fShowDebugOutput("Terminating connection to proxy server %s..." % oConnection);
+        oConnection.fTerminate();
   
   @ShowDebugOutput
   def fWait(oSelf):
@@ -148,70 +168,19 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
   def fbWait(oSelf, nTimeoutInSeconds):
     return oSelf.__oTerminatedLock.fbWait(nTimeoutInSeconds);
   
-  @ShowDebugOutput
-  def fozGetResponseForURL(oSelf,
-    oURL,
-    szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
-  ):
-    oRequest = oSelf.foGetRequestForURL(
-      oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks,
-    );
-    ozResponse = oSelf.fozGetResponseForRequestAndURL(
-      oRequest, oURL, uzMaximumNumberOfChunksBeforeDisconnecting,
-    );
-    return ozResponse;
-  
-  @ShowDebugOutput
-  def ftozGetRequestAndResponseForURL(oSelf,
-    oURL,
-    szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
-  ):
-    if oSelf.__bStopping:
-      fShowDebugOutput("Stopping.");
-      return (None, None);
-    oRequest = oSelf.foGetRequestForURL(
-      oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks
-    );
-    ozResponse = oSelf.fozGetResponseForRequestAndURL(
-      oRequest, oURL, uzMaximumNumberOfChunksBeforeDisconnecting
-    );
-    return (oRequest, ozResponse);
-  
-  @ShowDebugOutput
-  def foGetRequestForURL(oSelf,
-    oURL,
-    szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    ozAdditionalHeaders = None, bAutomaticallyAddContentLengthHeader = False
-  ):
-    if ozHeaders is not None:
-      for sName in ["Proxy-Authenticate", "Proxy-Authorization", "Proxy-Connection"]:
-        ozHeader = oHeaders.fozGetUniqueHeaderForName(sName);
-        assert ozHeader is None, \
-            "%s header is not implemented!" % repr(ozHeader.sName);
-    oRequest = cHTTPRequest(
-      # Secure requests are made directly from the server after a CONNECT request, so the URL must be relative.
-      # Non-secure requests are made to the proxy, so the URL must be absolute.
-      sURL = oURL.sRelative if oURL.bSecure else oURL.sAbsolute,
-      szMethod = szMethod,
-      szVersion = szVersion,
-      ozHeaders = ozHeaders,
-      szBody = szBody,
-      szData = szData,
-      azsBodyChunks = azsBodyChunks,
-      ozAdditionalHeaders = ozAdditionalHeaders,
-      bAutomaticallyAddContentLengthHeader = bAutomaticallyAddContentLengthHeader
-    );
-    if not oRequest.oHeaders.fozGetUniqueHeaderForName("Host"):
-      oRequest.oHeaders.foAddHeaderForNameAndValue("Host", oURL.sHostnameAndPort);
-    if not oRequest.oHeaders.fozGetUniqueHeaderForName("Accept-Encoding"):
-      oRequest.oHeaders.foAddHeaderForNameAndValue("Accept-Encoding", ", ".join(oRequest.asSupportedCompressionTypes));
-    return oRequest;
+  def foGetProxyServerURLForURL(oSelf, oURL):
+    return oSelf.__oProxyServerURL.foClone();
   
   @ShowDebugOutput
   def fozGetResponseForRequestAndURL(oSelf,
     oRequest, oURL,
+    uzMaxStatusLineSize = None,
+    uzMaxHeaderNameSize = None,
+    uzMaxHeaderValueSize = None,
+    uzMaxNumberOfHeaders = None,
+    uzMaxBodySize = None,
+    uzMaxChunkSize = None,
+    uzMaxNumberOfChunks = None,
     uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
     if oSelf.__bStopping:
@@ -224,17 +193,29 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
         oURL.oBase,
       );
     if oSelf.__bStopping:
+      fShowDebugOutput("Stopping.");
       return None;
     assert ozConnection, \
         "Expected a connection but got %s" % repr(ozConnection);
-    oResponse = ozConnection.fozSendRequestAndReceiveResponse(
+    ozResponse = ozConnection.fozSendRequestAndReceiveResponse(
       oRequest,
       bStartTransaction = False,
+      uzMaxStatusLineSize = uzMaxStatusLineSize,
+      uzMaxHeaderNameSize = uzMaxHeaderNameSize,
+      uzMaxHeaderValueSize = uzMaxHeaderValueSize,
+      uzMaxNumberOfHeaders = uzMaxNumberOfHeaders,
+      uzMaxBodySize = uzMaxBodySize,
+      uzMaxChunkSize = uzMaxChunkSize,
+      uzMaxNumberOfChunks = uzMaxNumberOfChunks,
       uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
     );
-    if oResponse:
-      oSelf.fFireCallbacks("request sent and response received", ozConnection, oRequest, oResponse);
-    return oResponse;
+    if oSelf.__bStopping:
+      fShowDebugOutput("Stopping.");
+      return None;
+    assert ozResponse, \
+        "Expected a response but got %s" % repr(ozResponse);
+    oSelf.fFireCallbacks("request sent and response received", ozConnection, oRequest, ozResponse);
+    return ozResponse;
   
   @ShowDebugOutput
   def __fozReuseUnusedConnectionToProxyAndStartTransaction(oSelf):
@@ -385,7 +366,7 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
     # We have a non-secure connection to the the proxy and we need to make it a secure connection to a server by
     # sending a CONNECT request to the proxy first and then wrap the socket in SSL.
     oConnectRequest = cHTTPRequest(
-      sURL = oServerBaseURL,
+      sURL = oServerBaseURL.sAddress,
       szMethod = "CONNECT",
       ozHeaders = cHTTPHeaders.foFromDict({
         "Host": oServerBaseURL.sAddress,
@@ -454,22 +435,27 @@ class cHTTPClientUsingProxyServer(cWithCallbacks):
               (oConnection, ", ".join([
                 str(oKnownConnection) for oKnownConnection in oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort.items()
               ])));
-    finally:
-      oSelf.__oPropertyAccessTransactionLock.fRelease();
-    oSelf.__fCheckTerminated();
-  
-  def __fCheckTerminated(oSelf):
-    oSelf.__oPropertyAccessTransactionLock.fAcquire();
-    try:
+      # Return if we are not stopping or if there are other connections open:
       if not oSelf.__bStopping:
         return;
       if oSelf.__aoConnectionsToProxyNotConnectedToAServer:
         return;
       if oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort:
         return;
-      if oSelf.bTerminated:
-        return;
-      oSelf.__oTerminatedLock.fRelease();
     finally:
       oSelf.__oPropertyAccessTransactionLock.fRelease();
+    # We are stopping and the last connection just terminated: we are terminated.
+    fShowDebugOutput("Terminated.");
+    oSelf.__oTerminatedLock.fRelease();
     oSelf.fFireCallbacks("terminated");
+  
+  def fasGetDetails(oSelf):
+    # This is done without a property lock, so race-conditions exist and it
+    # approximates the real values.
+    if oSelf.bTerminated:
+      return ["terminated"];
+    return [s for s in [
+      "%d connections to proxy server" % len(oSelf.__aoConnectionsToProxyNotConnectedToAServer),
+      "%d secure connections to server through proxy" % len(oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort),
+      "stopping" if oSelf.__bStopping else None,
+    ] if s];
