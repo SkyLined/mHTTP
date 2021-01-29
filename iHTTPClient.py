@@ -10,12 +10,12 @@ except: # Do nothing if not available.
 
 from mHTTPConnections import cHTTPConnection, cHTTPConnectionsToServerPool, cURL;
 from mMultiThreading import cLock, cWithCallbacks;
+from mNotProvided import *;
 try: # SSL support is optional.
   from mSSL import cCertificateStore as czCertificateStore;
 except:
   czCertificateStore = None; # No SSL support
 
-from .mNotProvided import *;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"

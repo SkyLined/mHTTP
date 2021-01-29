@@ -12,9 +12,9 @@ except: # Do nothing if not available.
 
 from mHTTPConnections import cHTTPConnection, cHTTPConnectionAcceptor, cHTTPResponse, cURL;
 from mMultiThreading import cLock, cThread, cWithCallbacks;
+from mNotProvided import *;
 
 from .mExceptions import *;
-from .mNotProvided import *;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
