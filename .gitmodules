@@ -22,3 +22,6 @@
 [submodule "modules\\oConsole"]
 	path = modules\\oConsole
 	url = https://github.com/SkyLined/oConsole
+[submodule "modules/mNotProvided"]
+	path = modules/mNotProvided
+	url = https://github.com/SkyLined/mNotProvided/
