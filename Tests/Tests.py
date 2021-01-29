@@ -38,6 +38,7 @@ try:
   
   from fTestClient import fTestClient;
   from fTestServer import fTestServer;
+  from fTestAutomaticProxyClient import fTestAutomaticProxyClient;
   from fTestProxyClientAndServer import fTestProxyClientAndServer;
   
   def fLogEvents(oWithCallbacks, sWithCallbacks = None):
@@ -57,45 +58,50 @@ try:
   bTestClient = None;
   bTestServer = None;
   bTestProxy = None;
-  fzLogEvents = None;
+  bTestAutoProxy = True;
+  f0LogEvents = None;
   # Enable/disable output for all classes
   for sArgument in sys.argv[1:]:
     if sArgument == "--quick": 
       pass; # Always quick :)
     elif sArgument == "--events":
-      fzLogEvents = fLogEvents;
+      f0LogEvents = fLogEvents;
     elif sArgument == "--debug":
+      assert mDebugOutput, \
+          "mDebugOutput module is not available";
       # Turn on debugging for various classes, including a few that are not directly exported.
       import mTCPIPConnections, mHTTPConnections, mHTTPProtocol;
-      fEnableDebugOutputForModule(mHTTP);
-      fEnableDebugOutputForModule(mHTTPConnections);
-#      fEnableDebugOutputForClass(mHTTPProtocol.cHTTPHeader);
-#      fEnableDebugOutputForClass(mHTTPProtocol.cHTTPHeaders);
-      fEnableDebugOutputForClass(mHTTPProtocol.cHTTPRequest);
-      fEnableDebugOutputForClass(mHTTPProtocol.cHTTPResponse);
-      fEnableDebugOutputForClass(mHTTPProtocol.iHTTPMessage);
-      fEnableDebugOutputForModule(mTCPIPConnections);
-      fEnableDebugOutputForModule(mSSL);
+      mDebugOutput.fEnableDebugOutputForModule(mHTTP);
+      mDebugOutput.fEnableDebugOutputForModule(mHTTPConnections);
+#      mDebugOutput.fEnableDebugOutputForClass(mHTTPProtocol.cHTTPHeader);
+#      mDebugOutput.fEnableDebugOutputForClass(mHTTPProtocol.cHTTPHeaders);
+      mDebugOutput.fEnableDebugOutputForClass(mHTTPProtocol.cHTTPRequest);
+      mDebugOutput.fEnableDebugOutputForClass(mHTTPProtocol.cHTTPResponse);
+      mDebugOutput.fEnableDebugOutputForClass(mHTTPProtocol.iHTTPMessage);
+      mDebugOutput.fEnableDebugOutputForModule(mTCPIPConnections);
+      mDebugOutput.fEnableDebugOutputForModule(mSSL);
       # Outputting debug information is slow, so increase the timeout!
       mHTTP.cHTTPClient.nDefaultConnectTimeoutInSeconds = 100;
       mHTTP.cHTTPClient.nDefaultTransactionTimeoutInSeconds = 100;
-    elif sArgument == "--client":
-      if bTestClient is None:
-        bTestServer = False;
-        bTestProxy = False;
-      bTestClient = True;
-    elif sArgument == "--server":
-      if bTestClient is None:
-        bTestClient = False;
-        bTestProxy = False;
-      bTestServer = True;
-    elif sArgument == "--proxy":
-      if bTestClient is None:
-        bTestClient = False;
-        bTestServer = False;
-      bTestProxy = True;
     else:
-      raise AssertionError("Unknown argument %s" % sArgument);
+      # We assume this is a flag that enables a specific test. If this is the
+      # first such flag, we will disable all tests to make sure we only run the
+      # tests that are explicitly enabled.
+      if bTestClient is None:
+        bTestClient = False;
+        bTestServer = False;
+        bTestProxy = False;
+        bTestAutoProxy = False;
+      if sArgument == "--client":
+        bTestClient = True;
+      elif sArgument == "--server":
+        bTestServer = True;
+      elif sArgument == "--proxy":
+        bTestProxy = True;
+      elif sArgument == "--auto-proxy":
+        bTestAutoProxy = True;
+      else:
+        raise AssertionError("Unknown argument %s" % sArgument);
   
   nEndWaitTimeoutInSeconds = 10;
   sCertificatesPath = os.path.join(os.path.dirname(__file__), "Certificates");
@@ -117,8 +123,11 @@ try:
   
   if bTestClient is not False:
     oConsole.fPrint("\xFE\xFE\xFE\xFE Creating a cHTTPClient instance ", sPadding = "\xFE");
-    oHTTPClient = mHTTP.cHTTPClient(oCertificateStore);
-    if fzLogEvents: fzLogEvents(oHTTPClient);
+    oHTTPClient = mHTTP.cHTTPClient(
+      o0zCertificateStore = oCertificateStore,
+      n0zConnectTimeoutInSeconds = 1, # Make sure connection attempts time out quickly to trigger a timeout exception.
+    );
+    if f0LogEvents: f0LogEvents(oHTTPClient);
     oConsole.fOutput("\xFE" * 160);
     oConsole.fOutput(" Test HTTP client");
     oConsole.fOutput("\xFE" * 160);
@@ -128,19 +137,27 @@ try:
     oConsole.fOutput("\xFE" * 160);
     oConsole.fOutput(" Test HTTP server");
     oConsole.fOutput("\xFE" * 160);
-    fTestServer(mHTTP.cHTTPServer, mHTTP.cHTTPClient, oCertificateStore, oLocalNonSecureURL, nEndWaitTimeoutInSeconds, fzLogEvents);
+    fTestServer(mHTTP.cHTTPServer, mHTTP.cHTTPClient, oCertificateStore, oLocalNonSecureURL, nEndWaitTimeoutInSeconds, f0LogEvents);
     
     oConsole.fOutput("\xFE" * 160);
     oConsole.fOutput(" Test HTTPS server");
     oConsole.fOutput("\xFE" * 160);
-    fTestServer(mHTTP.cHTTPServer, mHTTP.cHTTPClient, oCertificateStore, oLocalSecureURL, nEndWaitTimeoutInSeconds, fzLogEvents);
+    fTestServer(mHTTP.cHTTPServer, mHTTP.cHTTPClient, oCertificateStore, oLocalSecureURL, nEndWaitTimeoutInSeconds, f0LogEvents);
   
   if bTestProxy is not False:
     for oCertificateAuthority in [None, mSSL.oCertificateAuthority]:
       oConsole.fOutput("\xFE" * 160);
-      oConsole.fOutput(" Test HTTP client proxy server%s." % (" with intercepted HTTPS connections" if oCertificateAuthority else ""));
+      oConsole.fOutput(" Test HTTP client and proxy server%s." % (" with intercepted HTTPS connections" if oCertificateAuthority else ""));
       oConsole.fOutput("\xFE" * 160);
-      fTestProxyClientAndServer(oProxyServerURL, oCertificateStore, oCertificateAuthority, nEndWaitTimeoutInSeconds, fzLogEvents);
+      fTestProxyClientAndServer(oProxyServerURL, oCertificateStore, oCertificateAuthority, nEndWaitTimeoutInSeconds, f0LogEvents);
+  
+  if bTestAutoProxy is not False:
+    oConsole.fOutput("\xFE" * 160);
+    oConsole.fOutput(" Test HTTP client with automatic proxy.");
+    oConsole.fOutput("\xFE" * 160);
+    fTestAutomaticProxyClient(oCertificateStore, nEndWaitTimeoutInSeconds, f0LogEvents);
+    
+  
   oConsole.fOutput("+ Done.");
   
 except Exception as oException:

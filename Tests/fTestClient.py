@@ -5,6 +5,13 @@ from mHTTPConnections import cHTTPConnection;
 from mMultiThreading import cThread;
 from oConsole import oConsole;
 
+
+NORMAL =            0x0F07; # Light gray
+INFO =              0x0F0F; # Bright white
+OK =                0x0F0A; # Bright green
+ERROR =             0x0F0C; # Bright red
+WARNING =           0x0F0E; # Yellow
+
 uServerPort = 28080;
 def foGetServerURL(sNote):
   global uServerPort;
@@ -16,10 +23,10 @@ oSecureTestURL = cURL.foFromString("https://example.com");
 oUnknownHostnameURL = cURL.foFromString("http://does.not.exist.example.com/unknown-hostname");
 oInvalidAddressURL = cURL.foFromString("http://0.0.0.0/invalid-address");
 oConnectionRefusedURL = foGetServerURL("refuse-connection");
-oConnectionTimeoutURL = cURL.foFromString("http://example.com:1"); # Not sure how to do this locally :(
+oConnectTimeoutURL = foGetServerURL("connect-timeout");
 oConnectionDisconnectedURL = foGetServerURL("disconnect");
 oConnectionShutdownURL = foGetServerURL("shutdown");
-oResponseTimeoutURL = foGetServerURL("timeout");
+oResponseTimeoutURL = foGetServerURL("response-timeout");
 oOutOfBandDataURL = foGetServerURL("send-out-of-band-data");
 oInvalidHTTPMessageURL = foGetServerURL("send-invalid-response");
 
@@ -31,15 +38,17 @@ def fTestClient(
   oServersShouldBeRunningLock = threading.Lock();
   oServersShouldBeRunningLock.acquire(); # Released once servers should stop runnning.
   oConsole.fPrint("\xFE\xFE\xFE\xFE Making a first test request to %s " % oTestURL, sPadding = "\xFE");
-  (oRequest, oResponse) = oHTTPClient.ftozGetRequestAndResponseForURL(oTestURL);
-  assert oResponse, \
+  (oRequest, o0Response) = oHTTPClient.fto0GetRequestAndResponseForURL(oTestURL);
+  assert o0Response, \
       "No response!?";
+  oResponse = o0Response;
   oConsole.fPrint("  oRequest = %s" % oRequest.fsSerialize());
   oConsole.fPrint("  oResponse = %s" % oResponse.fsSerialize());
   oConsole.fPrint("\xFE\xFE\xFE\xFE Making a second test request to %s " % oTestURL, sPadding = "\xFE");
-  (oRequest, oResponse) = oHTTPClient.ftozGetRequestAndResponseForURL(oTestURL);
-  assert oResponse, \
+  (oRequest, o0Response) = oHTTPClient.fto0GetRequestAndResponseForURL(oTestURL);
+  assert o0Response, \
       "No response!?";
+  oResponse = o0Response;
   oConsole.fPrint("  oRequest = %s" % oRequest);
   oConsole.fPrint("  oResponse = %s" % oResponse);
   if oHTTPClient.__class__.__name__ == "cHTTPClient": 
@@ -65,19 +74,25 @@ def fTestClient(
     assert len(asSecureConnectionTargets) == 0, \
         "Expected no secure connections, but found %s" % repr(asSecureConnectionTargets);
   
-  # Wrapping SSL secured sockets in SSL is not currently supported, so the client cannot secure a connection
-  # to a server over a secure connection to a proxy.
-  if oHTTPClient.__class__.__name__ != "cHTTPClientUsingProxyServer" or not oHTTPClient.foGetProxyServerURL().bSecure: 
+  # Wrapping SSL secured sockets in SSL is not currently supported, so the
+  # client cannot secure a connection to a server over a secure connection to a
+  # proxy.
+  oProxyServerURLForSecureTestURL = oHTTPClient.fo0GetProxyServerURLForURL(oSecureTestURL);
+  # If we are not using a proxy, or the URL for the proxy server is not secure,
+  # we can test a secure connection to the server.
+  if not oProxyServerURLForSecureTestURL or not oProxyServerURLForSecureTestURL.bSecure: 
     oConsole.fPrint("\xFE\xFE\xFE\xFE Making a first test request to %s " % oSecureTestURL, sPadding = "\xFE");
-    (oRequest, oResponse) = oHTTPClient.ftozGetRequestAndResponseForURL(oSecureTestURL);
-    assert oResponse, \
+    (oRequest, o0Response) = oHTTPClient.fto0GetRequestAndResponseForURL(oSecureTestURL);
+    assert o0Response, \
         "No response!?";
+    oResponse = o0Response;
     oConsole.fPrint("  oRequest = %s" % oRequest);
     oConsole.fPrint("  oResponse = %s" % oResponse);
     oConsole.fPrint("\xFE\xFE\xFE\xFE Making a second test request to %s " % oSecureTestURL, sPadding = "\xFE");
-    (oRequest, oResponse) = oHTTPClient.ftozGetRequestAndResponseForURL(oSecureTestURL);
-    assert oResponse, \
+    (oRequest, o0Response) = oHTTPClient.fto0GetRequestAndResponseForURL(oSecureTestURL);
+    assert o0Response, \
         "No response!?";
+    oResponse = o0Response;
     oConsole.fPrint("  oRequest = %s" % oRequest);
     oConsole.fPrint("  oResponse = %s" % oResponse);
     if oHTTPClient.__class__.__name__ == "cHTTPClient": 
@@ -122,7 +137,7 @@ def fTestClient(
   oOutOfBandDataServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
   oOutOfBandDataServerSocket.bind((oOutOfBandDataURL.sHostname, oOutOfBandDataURL.uPort));
   oOutOfBandDataServerSocket.listen(1);
-  oResponse = cHTTPConnection.foCreateResponse(szData = "Hello, world!");
+  oResponse = cHTTPConnection.foCreateResponse(s0Data = "Hello, world!");
   sResponseWithOutOfBandData = oResponse.fsSerialize() + oResponse.fsSerialize();
   def fOutOfBandDataServerThread():
     (oClientSocket, (sClientIP, uClientPort)) = oOutOfBandDataServerSocket.accept();
@@ -196,55 +211,80 @@ def fTestClient(
   oInvalidHTTPMessageServerThread = cThread(fInvalidHTTPMessageServerThread);
   oInvalidHTTPMessageServerThread.fStart(bVital = False);
   
-  for (oURL, cException, uStatusCode, uNumberOfRequests) in (
-    (oUnknownHostnameURL,         cDNSUnknownHostnameException,                400, 1),
-    (oInvalidAddressURL,          cTCPIPInvalidAddressException,                 400, 1),
-    (oConnectionRefusedURL,       cTCPIPConnectionRefusedException,         502, 1),
-    (oConnectionTimeoutURL,       cTCPIPConnectTimeoutException,            504, 1),
-    (oConnectionDisconnectedURL,  cTCPIPConnectionDisconnectedException,    502, 1),
-    (oConnectionShutdownURL,      cTCPIPConnectionShutdownException,        502, 1),
-    (oResponseTimeoutURL,         cTCPIPDataTimeoutException,               504, 1),
-    (oOutOfBandDataURL,           cHTTPOutOfBandDataException,              502, 2),
-    (oInvalidHTTPMessageURL,      cHTTPInvalidMessageException,             502, 1),
+  for (uNumberOfRequests, oURL, cExpectedExceptionClass, acAcceptableExceptionClasses, auAcceptableStatusCodes) in (
+    (1, oUnknownHostnameURL,
+        cDNSUnknownHostnameException, [],
+        [400]),
+    (1, oInvalidAddressURL,
+        cTCPIPInvalidAddressException, [],
+        [400]),
+    (1, oConnectionRefusedURL,
+        cTCPIPConnectionRefusedException, [cTCPIPConnectTimeoutException],
+        [502]),
+    (1, oConnectTimeoutURL,
+        cTCPIPConnectTimeoutException, [],
+        [502, 504]),
+    (1, oConnectionDisconnectedURL,
+        cTCPIPConnectionDisconnectedException, [],
+        [502]),
+    (1, oConnectionShutdownURL,
+        cTCPIPConnectionShutdownException, [],
+        [502]),
+    (1, oResponseTimeoutURL,
+        cTCPIPDataTimeoutException, [],
+        [504]),
+    (2, oOutOfBandDataURL,
+        cHTTPOutOfBandDataException, [],
+        [502]),
+    (1, oInvalidHTTPMessageURL,
+        cHTTPInvalidMessageException, [],
+        [502]),
   ):
     oConsole.fPrint("\xFE\xFE\xFE\xFE Making a test request to %s " % oURL, sPadding = "\xFE");
     if oHTTPClient.__class__.__name__ == "cHTTPClient":
-      oConsole.fStatus("  * Expecting %s exception..." % cException.__name__);
-      uStatusCode = None;
+      oConsole.fStatus("  * Expecting %s exception..." % cExpectedExceptionClass.__name__);
+      auAcceptableStatusCodes = None;
     if oHTTPClient.__class__.__name__ == "cHTTPClientUsingProxyServer":
-      if uStatusCode:
-        oConsole.fStatus("  * Expecting a HTTP %03d reponse..." % uStatusCode);
-        cException = None;
+      if auAcceptableStatusCodes:
+        oConsole.fStatus("  * Expecting a HTTP %s reponse..." % "/".join(["%03d" % uStatusCode for uStatusCode in auAcceptableStatusCodes]));
+        cExpectedExceptionClass = None;
     for uConnectionNumber in xrange(1, uNumberOfRequests + 1):
       if uConnectionNumber < uNumberOfRequests:
         # We do not yet expect an exception, so we won't handle one.
-        oResponse = oHTTPClient.fozGetResponseForURL(oURL);
-        assert oResponse, \
+        o0Response = oHTTPClient.fo0GetResponseForURL(oURL);
+        assert o0Response, \
             "No response!?";
+        oResponse = o0Response;
         oConsole.fPrint("  oResponse = %s" % oResponse);
       else:
         try:
           # Use a short connect timeout to speed things up: all connections should be created in about 1 second except the
           # one that purposefully times out and this way we do not have to wait for that to happen very long.
-          oResponse = oHTTPClient.fozGetResponseForURL(oURL);
-          assert oResponse, \
+          o0Response = oHTTPClient.fo0GetResponseForURL(oURL);
+          assert o0Response, \
               "No response!?";
-          assert uStatusCode in (None, oResponse.uStatusCode), \
-              "Expected a HTTP %03d response, got %s" % (uStatusCode, oResponse.fsGetStatusLine());
-          oConsole.fPrint("  oResponse = %s" % oResponse);
+          oResponse = o0Response;
+          if auAcceptableStatusCodes:
+            assert oResponse.uStatusCode in auAcceptableStatusCodes, \
+                "Expected a HTTP %s response, got %s" % \
+                ("/".join(["%03d" % uStatusCode for uStatusCode in auAcceptableStatusCodes]), oResponse.fsGetStatusLine());
+          oConsole.fOutput("  oResponse = %s" % oResponse);
         except Exception as oException:
-          if cException and isinstance(oException, cException):
-            oConsole.fPrint("  + Threw %s." % repr(oException));
+          if oException.__class__ is cExpectedExceptionClass:
+            oConsole.fPrint(OK, "  + Threw %s." % repr(oException));
+          elif oException.__class__ in acAcceptableExceptionClasses:
+            oConsole.fPrint(WARNING, "  ~ Threw %s." % repr(oException));
+            oConsole.fPrint("    Expected %s." % cExpectedExceptionClass.__name__);
           else:
-            oConsole.fPrint("  - Threw %s." % repr(oException));
-            if cException:
-              oConsole.fPrint("    Expected %s." % cException.__name__);
+            oConsole.fPrint(ERROR, "  - Threw %s." % repr(oException));
+            if cExpectedExceptionClass:
+              oConsole.fPrint("    Expected %s." % cExpectedExceptionClass.__name__);
             else:
               oConsole.fPrint("    No exception expected.");
             raise;
         else:
-          if cException:
-            oConsole.fPrint("  - No exception thrown.");
+          if cExpectedExceptionClass:
+            oConsole.fPrint(ERROR, "  - Expected %s." % cExpectedExceptionClass.__name__);
             raise AssertionError("No exception");
   
   # Allow server threads to stop.

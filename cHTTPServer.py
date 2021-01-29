@@ -14,6 +14,7 @@ from mHTTPConnections import cHTTPConnection, cHTTPConnectionAcceptor, cHTTPResp
 from mMultiThreading import cLock, cThread, cWithCallbacks;
 
 from .mExceptions import *;
+from .mNotProvided import *;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
@@ -21,23 +22,28 @@ from .mExceptions import *;
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
 class cHTTPServer(cWithCallbacks):
-  nzDefaultTransactionTimeoutInSeconds = 10;
-  nzDefaultIdleTimeoutInSeconds = 60;
+  n0DefaultTransactionTimeoutInSeconds = 10;
+  n0DefaultIdleTimeoutInSeconds = 60;
   
   @ShowDebugOutput
-  def __init__(oSelf, ftxRequestHandler, szHostname = None, uzPort = None, ozSSLContext = None, nzTransactionTimeoutInSeconds = None, nzIdleTimeoutInSeconds = None):
-    assert szHostname is None or isinstance(szHostname,  (str, unicode)), \
+  def __init__(oSelf,
+    ftxRequestHandler,
+    szHostname = zNotProvided, uzPort = zNotProvided,
+    o0SSLContext = None,
+    n0zTransactionTimeoutInSeconds = zNotProvided,
+    n0zIdleTimeoutInSeconds = zNotProvided,
+  ):
+    assert not fbIsProvided(szHostname) or isinstance(szHostname,  (str, unicode)), \
         "Invalid szHostname %s" % repr(szHostname);
-    assert uzPort is None or isinstance(uzPort,  (int, long)), \
+    assert not fbIsProvided(uzPort) or isinstance(uzPort,  (int, long)), \
         "Invalid uPort %s" % repr(uzPort);
     oSelf.__ftxRequestHandler = ftxRequestHandler;
-    uPort = uzPort if uzPort else 443 if ozSSLContext else 80;
-    oSelf.__nzTransactionTimeoutInSeconds = nzTransactionTimeoutInSeconds if nzTransactionTimeoutInSeconds else oSelf.nzDefaultTransactionTimeoutInSeconds;
-    oSelf.__nzIdleTimeoutInSeconds = nzIdleTimeoutInSeconds if nzIdleTimeoutInSeconds else oSelf.nzDefaultIdleTimeoutInSeconds;
+    oSelf.__n0TransactionTimeoutInSeconds = fxGetFirstProvidedValue(n0zTransactionTimeoutInSeconds, oSelf.n0DefaultTransactionTimeoutInSeconds);
+    oSelf.__n0IdleTimeoutInSeconds = fxGetFirstProvidedValue(n0zIdleTimeoutInSeconds, oSelf.n0DefaultIdleTimeoutInSeconds);
     
     oSelf.__oPropertyAccessTransactionLock = cLock(
       "%s.__oPropertyAccessTransactionLock" % oSelf.__class__.__name__,
-      nzDeadlockTimeoutInSeconds = gnDeadlockTimeoutInSeconds
+      n0DeadlockTimeoutInSeconds = gnDeadlockTimeoutInSeconds
     );
     
     oSelf.__aoConnections = [];
@@ -48,7 +54,7 @@ class cHTTPServer(cWithCallbacks):
       "%s.__oTerminatedLock" % oSelf.__class__.__name__,
       bLocked = True
     );
-
+    
     oSelf.fAddEvents(
       "new connection",
       "idle timeout",
@@ -58,13 +64,13 @@ class cHTTPServer(cWithCallbacks):
       "connection terminated",
       "terminated"
     );
-
+    
     oSelf.__oConnectionAcceptor = cHTTPConnectionAcceptor(
       fNewConnectionHandler = oSelf.__fHandleNewConnection,
       szHostname = szHostname,
-      uzPort = uPort,
-      ozSSLContext = ozSSLContext,
-      nzSecureTimeoutInSeconds = oSelf.__nzTransactionTimeoutInSeconds,
+      uzPort = uzPort,
+      o0SSLContext = o0SSLContext,
+      n0zSecureTimeoutInSeconds = oSelf.__n0TransactionTimeoutInSeconds,
     );
     oSelf.__oConnectionAcceptor.fAddCallback("terminated", oSelf.__HandleTerminatedCallbackFromConnectionAcceptor);
   
@@ -75,8 +81,8 @@ class cHTTPServer(cWithCallbacks):
   def uPort(oSelf):
     return oSelf.__oConnectionAcceptor.uPort;
   @property
-  def ozSSLContext(oSelf):
-    return oSelf.__oConnectionAcceptor.ozSSLContext;
+  def o0SSLContext(oSelf):
+    return oSelf.__oConnectionAcceptor.o0SSLContext;
   @property
   def bSecure(oSelf):
     return oSelf.__oConnectionAcceptor.bSecure;
@@ -90,14 +96,14 @@ class cHTTPServer(cWithCallbacks):
   def oURL(oSelf):
     return oSelf.foGetURL();
   
-  def foGetURL(oSelf, szPath = None, szQuery = None, szFragment = None):
+  def foGetURL(oSelf, s0Path = None, s0Query = None, s0Fragment = None):
     return cURL(
-      sProtocol = "https" if oSelf.__oConnectionAcceptor.ozSSLContext else "http",
+      sProtocol = "https" if oSelf.__oConnectionAcceptor.bSecure else "http",
       sHostname = oSelf.sHostname,
-      uzPort = oSelf.uPort,
-      szPath = szPath,
-      szQuery = szQuery,
-      szFragment = szFragment
+      u0Port = oSelf.uPort,
+      s0Path = s0Path,
+      s0Query = s0Query,
+      s0Fragment = s0Fragment
     );
   
   def foGetURLForRequest(oSelf, oRequest):
@@ -178,8 +184,8 @@ class cHTTPServer(cWithCallbacks):
   def fWait(oSelf):
     return oSelf.__oTerminatedLock.fWait();
   @ShowDebugOutput
-  def fbWait(oSelf, nzTimeoutInSeconds):
-    return oSelf.__oTerminatedLock.fbWait(nzTimeoutInSeconds);
+  def fbWait(oSelf, nTimeoutInSeconds):
+    return oSelf.__oTerminatedLock.fbWait(nTimeoutInSeconds);
   
   @ShowDebugOutput
   def __fHandleNewConnection(oSelf, oConnectionAcceptor, oConnection):
@@ -227,15 +233,15 @@ class cHTTPServer(cWithCallbacks):
             if not oConnection.fbBytesAreAvailableForReading():
               fShowDebugOutput("Waiting for request from %s..." % oConnection);
               bTransactionStarted = oConnection.fbWaitUntilBytesAreAvailableForReadingAndStartTransaction(
-                nzWaitTimeoutInSeconds = oSelf.__nzIdleTimeoutInSeconds,
-                nzTransactionTimeoutInSeconds = oSelf.__nzTransactionTimeoutInSeconds,
+                n0WaitTimeoutInSeconds = oSelf.__n0IdleTimeoutInSeconds,
+                n0TransactionTimeoutInSeconds = oSelf.__n0TransactionTimeoutInSeconds,
               );
             else:
-              bTransactionStarted = oConnection.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds);
+              bTransactionStarted = oConnection.fbStartTransaction(oSelf.__n0TransactionTimeoutInSeconds);
           except cTCPIPConnectionShutdownException as oException:
             fShowDebugOutput("Connection %s was shutdown." % oConnection);
             if not bTransactionStarted:
-              assert oConnection.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds), \
+              assert oConnection.fbStartTransaction(oSelf.__n0TransactionTimeoutInSeconds), \
                   "Cannot start a transaction to disconnect the connection!?";
             oConnection.fDisconnect();
             break;

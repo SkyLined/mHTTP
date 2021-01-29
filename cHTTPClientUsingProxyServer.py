@@ -13,68 +13,76 @@ except: # Do nothing if not available.
 from mMultiThreading import cLock, cWithCallbacks;
 from mHTTPConnections import cHTTPConnection, cHTTPRequest, cHTTPHeaders;
 try: # SSL support is optional.
-  from mSSL import cCertificateStore as czCertificateStore;
+  from mSSL import cCertificateStore as c0CertificateStore;
 except:
-  czCertificateStore = None; # No SSL support
+  c0CertificateStore = None; # No SSL support
 
-from .mExceptions import *;
 from .iHTTPClient import iHTTPClient;
+from .mExceptions import *;
+from .mNotProvided import *;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
 # bug, where "too long" is defined by the following value:
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
-def fxFirstNonNone(*txArguments):
-  for xArgument in txArguments:
-    if xArgument is not None:
-      return xArgument;
-  return None;
-
 class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
-  uzDefaultMaxNumberOfConnectionsToProxy = 10;
-  nzDefaultConnectToProxyTimeoutInSeconds = 10;
-  nzDefaultSecureConnectionToProxyTimeoutInSeconds = 5;
-  nzDefaultSecureConnectionToServerTimeoutInSeconds = 5;
-  nzDefaultTransactionTimeoutInSeconds = 10;
+  # Some sane limitation on the number of connections to the proxy makes sense, to reduce the risk of a bug in the
+  # code causing an excessive number of connections to be made:
+  u0DefaultMaxNumberOfConnectionsToProxy = 10;
+  # The following defaults can be used to override the defaults from the mHTTPConnections classes.
+  # If they are set to `zNotProvided`, the defaults from the mHTTPConnections classes will be used.
+  n0zDefaultConnectToProxyTimeoutInSeconds = zNotProvided;
+  n0zDefaultSecureConnectionToProxyTimeoutInSeconds = zNotProvided;
+  n0zDefaultSecureConnectionToServerTimeoutInSeconds = zNotProvided;
+  # There is no default transaction timeout in the mHTTPConnections classes, so this cannot be zNotProvided.
+  n0DefaultTransactionTimeoutInSeconds = 10;
   
   @ShowDebugOutput
   def __init__(oSelf,
     oProxyServerURL,
     bAllowUnverifiableCertificatesForProxy = False, bCheckProxyHostname = True,
-    ozCertificateStore = None, uzMaxNumberOfConnectionsToProxy = None,
-    nzConnectToProxyTimeoutInSeconds = None, nzSecureConnectionToProxyTimeoutInSeconds = None,
-    nzSecureConnectionToServerTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None,
-    bAllowUnverifiableCertificates = False, bCheckHostname = True,
+    o0zCertificateStore = zNotProvided,
+    u0zMaxNumberOfConnectionsToProxy = zNotProvided,
+    n0zConnectToProxyTimeoutInSeconds = zNotProvided,
+    n0zSecureConnectionToProxyTimeoutInSeconds = zNotProvided,
+    n0zSecureConnectionToServerTimeoutInSeconds = zNotProvided,
+    n0zTransactionTimeoutInSeconds = zNotProvided,
+    bAllowUnverifiableCertificates = False,
+    bCheckHostname = True,
   ):
     oSelf.__oProxyServerURL = oProxyServerURL;
     oSelf.__bAllowUnverifiableCertificatesForProxy = bAllowUnverifiableCertificatesForProxy;
     oSelf.__bCheckProxyHostname = bCheckProxyHostname;
     
-    oSelf.__ozCertificateStore = (
-      ozCertificateStore if ozCertificateStore else
-      czCertificateStore() if czCertificateStore else
+    oSelf.__o0CertificateStore = (
+      o0zCertificateStore if fbIsProvided(o0zCertificateStore) else
+      c0CertificateStore() if c0CertificateStore is not None else
       None
     );
-    assert not oProxyServerURL.bSecure or oSelf.__ozCertificateStore, \
+    assert not oProxyServerURL.bSecure or oSelf.__o0CertificateStore, \
         "Cannot use a secure proxy without the mSSL module!";
-    oSelf.__uzMaxNumberOfConnectionsToProxy = uzMaxNumberOfConnectionsToProxy or oSelf.uzDefaultMaxNumberOfConnectionsToProxy;
+    oSelf.__u0MaxNumberOfConnectionsToProxy = fxGetFirstProvidedValue(u0zMaxNumberOfConnectionsToProxy, oSelf.u0DefaultMaxNumberOfConnectionsToProxy);
     # Timeouts for this instance default to the timeouts specified for the class.
-    oSelf.__nzConnectToProxyTimeoutInSeconds = fxFirstNonNone(nzConnectToProxyTimeoutInSeconds, oSelf.nzDefaultConnectToProxyTimeoutInSeconds);
-    oSelf.__nzSecureConnectionToProxyTimeoutInSeconds = fxFirstNonNone(nzSecureConnectionToProxyTimeoutInSeconds, oSelf.nzDefaultSecureConnectionToProxyTimeoutInSeconds);
-    oSelf.__nzSecureConnectionToServerTimeoutInSeconds = fxFirstNonNone(nzSecureConnectionToServerTimeoutInSeconds, oSelf.nzDefaultSecureConnectionToServerTimeoutInSeconds);
-    oSelf.__nzTransactionTimeoutInSeconds = fxFirstNonNone(nzTransactionTimeoutInSeconds, oSelf.nzDefaultTransactionTimeoutInSeconds);
+    oSelf.__n0zConnectToProxyTimeoutInSeconds = fxzGetFirstProvidedValueIfAny(n0zConnectToProxyTimeoutInSeconds, oSelf.n0zDefaultConnectToProxyTimeoutInSeconds);
+    oSelf.__n0zSecureConnectionToProxyTimeoutInSeconds = fxzGetFirstProvidedValueIfAny(n0zSecureConnectionToProxyTimeoutInSeconds, oSelf.n0zDefaultSecureConnectionToProxyTimeoutInSeconds);
+    oSelf.__n0zSecureConnectionToServerTimeoutInSeconds = fxzGetFirstProvidedValueIfAny(n0zSecureConnectionToServerTimeoutInSeconds, oSelf.n0zDefaultSecureConnectionToServerTimeoutInSeconds);
+    oSelf.__n0TransactionTimeoutInSeconds = fxGetFirstProvidedValue(n0zTransactionTimeoutInSeconds, oSelf.n0DefaultTransactionTimeoutInSeconds);
     oSelf.__bAllowUnverifiableCertificates = bAllowUnverifiableCertificates;
     oSelf.__bCheckHostname = bCheckHostname;
-
-    oSelf.__ozProxySSLContext = (
-      oSelf.__ozCertificateStore.foGetClientsideSSLContextWithoutVerification() \
-      if bAllowUnverifiableCertificatesForProxy else 
-      oSelf.__ozCertificateStore.foGetClientsideSSLContextForHostname(
-        oProxyServerURL.sHostname,
-        oSelf.__bCheckProxyHostname,
-      )
-    ) if oProxyServerURL.bSecure else None;
+    
+    if not oProxyServerURL.bSecure:
+      oSelf.__o0ProxySSLContext = None;
+    else:
+      assert oSelf.__o0CertificateStore, \
+          "A secure proxy cannot be used if no certificate store is available!";
+      if bAllowUnverifiableCertificatesForProxy:
+        oSelf.__o0ProxySSLContext = oSelf.__o0CertificateStore.foGetClientsideSSLContextWithoutVerification();
+      else:
+        oSelf.__o0ProxySSLContext = oSelf.__o0CertificateStore.foGetClientsideSSLContextForHostname(
+          oProxyServerURL.sHostname,
+          oSelf.__bCheckProxyHostname,
+        );
     
     oSelf.__oWaitingForConnectionToBecomeAvailableLock = cLock(
       "%s.__oWaitingForConnectionToBecomeAvailableLock" % oSelf.__class__.__name__,
@@ -82,7 +90,7 @@ class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
     
     oSelf.__oPropertyAccessTransactionLock = cLock(
       "%s.__oPropertyAccessTransactionLock" % oSelf.__class__.__name__,
-      nzDeadlockTimeoutInSeconds = gnDeadlockTimeoutInSeconds
+      n0DeadlockTimeoutInSeconds = gnDeadlockTimeoutInSeconds
     );
     oSelf.__aoConnectionsToProxyNotConnectedToAServer = [];
     oSelf.__doConnectionToProxyUsedForSecureConnectionToServer_by_sProtocolHostPort = {};
@@ -168,62 +176,62 @@ class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
   def fbWait(oSelf, nTimeoutInSeconds):
     return oSelf.__oTerminatedLock.fbWait(nTimeoutInSeconds);
   
-  def foGetProxyServerURLForURL(oSelf, oURL):
+  def fo0GetProxyServerURLForURL(oSelf, oURL):
     return oSelf.__oProxyServerURL.foClone();
   
   @ShowDebugOutput
-  def fozGetResponseForRequestAndURL(oSelf,
+  def fo0GetResponseForRequestAndURL(oSelf,
     oRequest, oURL,
-    uzMaxStatusLineSize = None,
-    uzMaxHeaderNameSize = None,
-    uzMaxHeaderValueSize = None,
-    uzMaxNumberOfHeaders = None,
-    uzMaxBodySize = None,
-    uzMaxChunkSize = None,
-    uzMaxNumberOfChunks = None,
-    uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
+    u0zMaxStatusLineSize = zNotProvided,
+    u0zMaxHeaderNameSize = zNotProvided,
+    u0zMaxHeaderValueSize = zNotProvided,
+    u0zMaxNumberOfHeaders = zNotProvided,
+    u0zMaxBodySize = zNotProvided,
+    u0zMaxChunkSize = zNotProvided,
+    u0zMaxNumberOfChunks = zNotProvided,
+    u0MaxNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
     if oSelf.__bStopping:
       fShowDebugOutput("Stopping.");
       return None;
     if not oURL.bSecure:
-      ozConnection = oSelf.__fozGetUnusedConnectionToProxyAndStartTransaction();
+      o0Connection = oSelf.__fo0GetUnusedConnectionToProxyAndStartTransaction();
     else:
-      ozConnection = oSelf.__fozGetUnusedSecureConnectionToServerThroughProxyAndStartTransaction(
+      o0Connection = oSelf.__fo0GetUnusedSecureConnectionToServerThroughProxyAndStartTransaction(
         oURL.oBase,
       );
     if oSelf.__bStopping:
       fShowDebugOutput("Stopping.");
       return None;
-    assert ozConnection, \
-        "Expected a connection but got %s" % repr(ozConnection);
-    ozResponse = ozConnection.fozSendRequestAndReceiveResponse(
+    assert o0Connection, \
+        "Expected a connection but got %s" % repr(o0Connection);
+    o0Response = o0Connection.fo0SendRequestAndReceiveResponse(
       oRequest,
       bStartTransaction = False,
-      uzMaxStatusLineSize = uzMaxStatusLineSize,
-      uzMaxHeaderNameSize = uzMaxHeaderNameSize,
-      uzMaxHeaderValueSize = uzMaxHeaderValueSize,
-      uzMaxNumberOfHeaders = uzMaxNumberOfHeaders,
-      uzMaxBodySize = uzMaxBodySize,
-      uzMaxChunkSize = uzMaxChunkSize,
-      uzMaxNumberOfChunks = uzMaxNumberOfChunks,
-      uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
+      u0zMaxStatusLineSize = u0zMaxStatusLineSize,
+      u0zMaxHeaderNameSize = u0zMaxHeaderNameSize,
+      u0zMaxHeaderValueSize = u0zMaxHeaderValueSize,
+      u0zMaxNumberOfHeaders = u0zMaxNumberOfHeaders,
+      u0zMaxBodySize = u0zMaxBodySize,
+      u0zMaxChunkSize = u0zMaxChunkSize,
+      u0zMaxNumberOfChunks = u0zMaxNumberOfChunks,
+      u0MaxNumberOfChunksBeforeDisconnecting = u0MaxNumberOfChunksBeforeDisconnecting,
     );
     if oSelf.__bStopping:
       fShowDebugOutput("Stopping.");
       return None;
-    assert ozResponse, \
-        "Expected a response but got %s" % repr(ozResponse);
-    oSelf.fFireCallbacks("request sent and response received", ozConnection, oRequest, ozResponse);
-    return ozResponse;
+    assert o0Response, \
+        "Expected a response but got %s" % repr(o0Response);
+    oSelf.fFireCallbacks("request sent and response received", o0Connection, oRequest, o0Response);
+    return o0Response;
   
   @ShowDebugOutput
-  def __fozReuseUnusedConnectionToProxyAndStartTransaction(oSelf):
+  def __fo0ReuseUnusedConnectionToProxyAndStartTransaction(oSelf):
     oSelf.__oPropertyAccessTransactionLock.fbAcquire();
     try:
       # Try to find the non-secure connection that is available:
       for oConnection in oSelf.__aoConnectionsToProxyNotConnectedToAServer:
-        if oConnection.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds):
+        if oConnection.fbStartTransaction(oSelf.__n0TransactionTimeoutInSeconds):
           # This connection can be reused.
           fShowDebugOutput("Reusing existing connection to proxy: %s" % repr(oConnection));
           return oConnection;
@@ -236,42 +244,46 @@ class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
     oSelf.__oPropertyAccessTransactionLock.fbAcquire();
     try:
       # Try to find the secure connection that is idle:
-      for ozIdleSecureConnection in oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort.values():
-        if ozIdleSecureConnection.fbStartTransaction(0):
+      for oIdleSecureConnection in oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort.values():
+        if oIdleSecureConnection.fbStartTransaction(0):
           break;
       else:
         return False;
     finally:
       oSelf.__oPropertyAccessTransactionLock.fRelease();
-    ozIdleSecureConnection.fDisconnect();
+    oIdleSecureConnection.fDisconnect();
     return True;
   
   @ShowDebugOutput
-  def __fozGetUnusedConnectionToProxyAndStartTransaction(oSelf):
+  def __fo0GetUnusedConnectionToProxyAndStartTransaction(oSelf):
     # Try to reuse a non-secure connection if possible:
-    ozConnection = oSelf.__fozReuseUnusedConnectionToProxyAndStartTransaction();
-    if ozConnection:
-      fShowDebugOutput("Existing connectiong to proxy reused: %s." % repr(ozConnection));
-      return ozConnection;
+    o0Connection = oSelf.__fo0ReuseUnusedConnectionToProxyAndStartTransaction();
+    if o0Connection:
+      fShowDebugOutput("Existing connectiong to proxy reused: %s." % repr(o0Connection));
+      return o0Connection;
     # Try to create a new connection if possible:
     if (
-      oSelf.__uzMaxNumberOfConnectionsToProxy is not None
-      or oSelf.__fuCountAllConnections() < oSelf.__uzMaxNumberOfConnectionsToProxy
+      oSelf.__u0MaxNumberOfConnectionsToProxy is None
+      or oSelf.__fuCountAllConnections() < oSelf.__u0MaxNumberOfConnectionsToProxy
     ):
-      ozConnection = oSelf.__fozCreateNewConnectionToProxyAndStartTransaction(
-        nzConnectTimeoutInSeconds = oSelf.__nzConnectToProxyTimeoutInSeconds,
+      o0Connection = oSelf.__fo0CreateNewConnectionToProxyAndStartTransaction(
+        n0zConnectTimeoutInSeconds = oSelf.__n0zConnectToProxyTimeoutInSeconds,
       );
       if oSelf.__bStopping:
         fShowDebugOutput("Stopping.");
         return None;
-      assert ozConnection, \
-          "Expected a connection but got %s" % ozConnection;
-      fShowDebugOutput("New connectiong to proxy created: %s." % repr(ozConnection));
-      return ozConnection;
+      assert o0Connection, \
+          "Expected a connection but got %s" % o0Connection;
+      fShowDebugOutput("New connectiong to proxy created: %s." % repr(o0Connection));
+      return o0Connection;
     # Wait until we can start a transaction on any of the existing connections,
     # i.e. the conenction is idle:
     fShowDebugOutput("Maximum number of connections to proxy reached; waiting for a connection to become idle...");
-    nzConnectEndTime = time.clock() + oSelf.__nzConnectToProxyTimeoutInSeconds if oSelf.__nzConnectToProxyTimeoutInSeconds is not None else None;
+    n0zConnectEndTime = (
+      zNotProvided if not fbIsProvided(oSelf.__n0zConnectToProxyTimeoutInSeconds) else
+      None if oSelf.__n0zConnectToProxyTimeoutInSeconds is None else
+      time.clock() + oSelf.__n0zConnectToProxyTimeoutInSeconds
+    );
     # Since we want multiple thread to wait in turn, use a lock to allow only one
     # thread to enter the next block of code at a time.
     if not oSelf.__oWaitingForConnectionToBecomeAvailableLock.fbAcquire(oSelf.__nzConnectToProxyTimeoutInSeconds):
@@ -281,10 +293,13 @@ class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
       );
     try:
       # Wait until transactions can be started on one or more of the existing connections:
-      nzRemainingConnectToProxyTimeoutInSeconds = nzConnectEndTime - time.clock() if nzConnectEndTime is not None else None;
       aoConnectionsWithStartedTransactions = cHTTPConnection.faoWaitUntilTransactionsCanBeStartedAndStartTransactions(
         aoConnections = oSelf.__faoGetAllConnections(),
-        nzTimeoutInSeconds = nzRemaingingConnectToProxyTimeoutInSeconds,
+        n0zTimeoutInSeconds = (
+          zNotProvided if fbIsProvided(n0zConnectEndTime) else
+          None if n0zConnectEndTime is None else 
+          n0zConnectEndTime - time.clock()
+        ),
       );
       if not aoConnectionsWithStartedTransactions:
         # We timed out before a connection became available.
@@ -307,108 +322,122 @@ class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
         else:
           oSecureConnection.fEndTransaction();
       # Create a new connection
-      nzRemainingConnectToProxyTimeoutInSeconds = nzConnectEndTime - time.clock() if nzConnectEndTime is not None else None;
-      ozConnection = oSelf.__fozCreateNewConnectionToProxyAndStartTransaction(
-        nzConnectTimeoutInSeconds = nzRemainingConnectToProxyTimeoutInSeconds,
+      o0Connection = oSelf.__fo0CreateNewConnectionToProxyAndStartTransaction(
+        n0zConnectTimeoutInSeconds = (
+          zNotProvided if fbIsProvided(n0zConnectEndTime) else
+          None if n0zConnectEndTime is None else 
+          n0zConnectEndTime - time.clock()
+        ),
       );
       if oSelf.__bStopping:
         fShowDebugOutput("Stopping.");
         return None;
-      assert ozConnection, \
-          "Expected a connection but got %s" % ozConnection;
-      fShowDebugOutput("New connectiong to proxy created: %s." % repr(ozConnection));
+      assert o0Connection, \
+          "Expected a connection but got %s" % o0Connection;
+      fShowDebugOutput("New connectiong to proxy created: %s." % repr(o0Connection));
       return oConnection;
     finally:
       oSelf.__oWaitingForConnectionToBecomeAvailableLock.fRelease();
   
   @ShowDebugOutput
-  def __fozCreateNewConnectionToProxyAndStartTransaction(oSelf,
-    # The connect timeout can be less than oSelf.__nzConnectTimeoutInSeconds 
+  def __fo0CreateNewConnectionToProxyAndStartTransaction(oSelf,
+    # The connect timeout can be less than oSelf.__n0zConnectTimeoutInSeconds 
     # because we may have already have to wait for another connection to be
     # closed if we had reached the maximum number of connections.
-    nzConnectTimeoutInSeconds, 
+    n0zConnectTimeoutInSeconds, 
   ):
     # Create a new socket and return that.
     fShowDebugOutput("Connecting to %s..." % oSelf.__oProxyServerURL);
     oConnection = cHTTPConnection.foConnectTo(
       sHostname = oSelf.__oProxyServerURL.sHostname,
       uPort = oSelf.__oProxyServerURL.uPort,
-      nzConnectTimeoutInSeconds = nzConnectTimeoutInSeconds,
-      ozSSLContext = oSelf.__ozProxySSLContext,
-      nzSecureTimeoutInSeconds = oSelf.__nzSecureConnectionToProxyTimeoutInSeconds,
+      n0zConnectTimeoutInSeconds = n0zConnectTimeoutInSeconds,
+      o0SSLContext = oSelf.__o0ProxySSLContext,
+      n0zSecureTimeoutInSeconds = oSelf.__n0zSecureConnectionToProxyTimeoutInSeconds,
     );
     assert oConnection, \
         "Expected connection but got %s" % oConnection;
     oConnection.fAddCallback("request sent", oSelf.__fHandleRequestSentCallbackFromConnection);
     oConnection.fAddCallback("response received", oSelf.__fHandleResponseReceivedCallbackFromConnection);
     oConnection.fAddCallback("terminated", oSelf.__fHandleTerminatedCallbackFromConnection);
-    assert oConnection.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds), \
+    assert oConnection.fbStartTransaction(oSelf.__n0TransactionTimeoutInSeconds), \
         "Cannot start a transaction on a new connection (%s)" % repr(oConnection);
     oSelf.__aoConnectionsToProxyNotConnectedToAServer.append(oConnection);
     oSelf.fFireCallbacks("new connection", oConnection);
     return oConnection;
   
   @ShowDebugOutput
-  def __fozGetUnusedSecureConnectionToServerThroughProxyAndStartTransaction(oSelf, oServerBaseURL):
-    # See if we already have a secure connection to the server that is not in use and reuse that if we do:
-    ozSecureConnection = oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort.get(oServerBaseURL.sBase);
-    if ozSecureConnection:
-      assert ozSecureConnection.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds), \
-          "Cannot start a transaction on an existing secure connection to the server (%s)" % repr(ozSecureConnection);
-      fShowDebugOutput("Reusing existing connection");
-      return ozSecureConnection;
-    ozConnectionToProxy = oSelf.__fozGetUnusedConnectionToProxyAndStartTransaction();
+  def fo0GetConnectionToServerThroughProxyAndStartTransaction(oSelf, oServerBaseURL):
+    o0ConnectionToProxy = oSelf.__fo0GetUnusedConnectionToProxyAndStartTransaction();
     if oSelf.__bStopping:
+      if o0ConnectionToProxy:
+        o0ConnectionToProxy.fEndTransaction();
       fShowDebugOutput("Stopping.");
       return None;
-    assert ozConnectionToProxy, \
-        "Expected a connection but got %s" % ozConnectionToProxy;
-    # We have a non-secure connection to the the proxy and we need to make it a secure connection to a server by
-    # sending a CONNECT request to the proxy first and then wrap the socket in SSL.
+    assert o0ConnectionToProxy, \
+        "Expected a connection but got %s" % o0ConnectionToProxy;
+    # We have a connection to the the proxy and we need to ask it pipe the connection to a server by
+    # sending a CONNECT request:
+    oConnectionToProxy = o0ConnectionToProxy;
     oConnectRequest = cHTTPRequest(
       sURL = oServerBaseURL.sAddress,
       szMethod = "CONNECT",
-      ozHeaders = cHTTPHeaders.foFromDict({
+      o0Headers = cHTTPHeaders.foFromDict({
         "Host": oServerBaseURL.sAddress,
         "Connection": "Keep-Alive",
       }),
     );
-    ozConnectResponse = ozConnectionToProxy.fozSendRequestAndReceiveResponse(oConnectRequest, bStartTransaction = False);
+    o0ConnectResponse = oConnectionToProxy.fo0SendRequestAndReceiveResponse(oConnectRequest, bStartTransaction = False, bEndTransaction = False);
     # oConnectResponse can be None if we are stopping.
     if oSelf.__bStopping:
+      fShowDebugOutput("Stopping.");
       return None;
-    assert ozConnectResponse, \
-        "Expected a CONNECT response but got %s" % ozConnectResponse;
-    if ozConnectResponse.uStatusCode != 200:
+    assert o0ConnectResponse, \
+        "Expected a CONNECT response but got %s" % o0ConnectResponse;
+    oConnectResponse = o0ConnectResponse;
+    if oConnectResponse.uStatusCode != 200:
       # I am not entirely sure if we can trust the connection after this, so let's close it to prevent issues:
-      assert ozConnectionToProxy.fbStartTransaction(), \
-          "Cannot start a transaction!?";
-      ozConnectionToProxy.fDisconnect();
+      oConnectionToProxy.fDisconnect();
       raise cHTTPProxyConnectFailedException(
         "The proxy did not accept our CONNECT request.",
-        {"oConnectRequest": oConnectRequest, "oConnectResponse": ozConnectResponse},
+        {"oConnectRequest": oConnectRequest, "oConnectResponse": oConnectResponse},
       );
-    oConnectionToServerThroughProxy = ozConnectionToProxy; # More reasonable name at this point.
+    oConnectionToServerThroughProxy = oConnectionToProxy
+    # We've used some time to setup the connection; reset the transaction timeout
+    oConnectionToServerThroughProxy.fRestartTransaction(oSelf.__n0TransactionTimeoutInSeconds);
+    return oConnectionToServerThroughProxy;
+  
+  @ShowDebugOutput
+  def __fo0GetUnusedSecureConnectionToServerThroughProxyAndStartTransaction(oSelf, oServerBaseURL):
+    # See if we already have a secure connection to the server that is not in use and reuse that if we do:
+    o0SecureConnection = oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort.get(oServerBaseURL.sBase);
+    if o0SecureConnection:
+      assert o0SecureConnection.fbStartTransaction(oSelf.__n0TransactionTimeoutInSeconds), \
+          "Cannot start a transaction on an existing secure connection to the server (%s)" % repr(o0SecureConnection);
+      fShowDebugOutput("Reusing existing connection");
+      return o0SecureConnection;
+    oConnectionToServerThroughProxy = oSelf.fo0GetConnectionToServerThroughProxyAndStartTransaction(oServerBaseURL);
     fShowDebugOutput("Starting SSL negotiation...");
     # Wrap the connection in SSL.
-    oSSLContext = (
-      oSelf.__ozCertificateStore.foGetClientsideSSLContextWithoutVerification()
-      if oSelf.__bAllowUnverifiableCertificates else
-      oSelf.__ozCertificateStore.foGetClientsideSSLContextForHostname(
+    assert oSelf.__o0CertificateStore, \
+        "Cannot make secure requests without a certificate store";
+    if oSelf.__bAllowUnverifiableCertificates:
+      oSSLContext = oSelf.__o0CertificateStore.foGetClientsideSSLContextWithoutVerification();
+    else:
+      oSSLContext = oSelf.__o0CertificateStore.foGetClientsideSSLContextForHostname(
         oServerBaseURL.sHostname,
         oSelf.__bCheckHostname
-      )
-    );
+      );
     oConnectionToServerThroughProxy.fSecure(
       oSSLContext = oSSLContext,
-      nzTimeoutInSeconds = oSelf.__nzSecureConnectionToServerTimeoutInSeconds
+      n0zTimeoutInSeconds = oSelf.__n0zSecureConnectionToServerTimeoutInSeconds
     );
     # Remember that we now have this secure connection to the server
-    oSelf.__aoConnectionsToProxyNotConnectedToAServer.remove(ozConnectionToProxy);
+    oSelf.__aoConnectionsToProxyNotConnectedToAServer.remove(oConnectionToServerThroughProxy);
     oSelf.__doSecureConnectionToServerThroughProxy_by_sProtocolHostPort[oServerBaseURL.sBase] = oConnectionToServerThroughProxy;
     oSelf.fFireCallbacks("secure connection established", oConnectionToServerThroughProxy, oServerBaseURL.sHostname);
     # and start using it...
-    assert oConnectionToServerThroughProxy.fbStartTransaction(oSelf.__nzTransactionTimeoutInSeconds), \
+    assert oConnectionToServerThroughProxy.fRestartTransaction(oSelf.__n0TransactionTimeoutInSeconds), \
         "Cannot start a connection on a newly created connection?";
     return oConnectionToServerThroughProxy;
   

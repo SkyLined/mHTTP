@@ -3,6 +3,7 @@ import os, sys;
 from .cHTTPClient import cHTTPClient;
 from .cHTTPClientSideProxyServer import cHTTPClientSideProxyServer;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
+from .cHTTPClientUsingAutomaticProxyServer import cHTTPClientUsingAutomaticProxyServer;
 from .cHTTPServer import cHTTPServer;
 from .fs0GetMediaTypeForExtension import fs0GetMediaTypeForExtension;
 import mExceptions;
@@ -17,6 +18,7 @@ __all__ = [
   "cHTTPClient",
   "cHTTPClientSideProxyServer",
   "cHTTPClientUsingProxyServer",
+  "cHTTPClientUsingAutomaticProxyServer",
   "cHTTPServer",
   "fs0GetMediaTypeForExtension",
   "mExceptions",

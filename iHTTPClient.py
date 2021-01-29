@@ -15,150 +15,146 @@ try: # SSL support is optional.
 except:
   czCertificateStore = None; # No SSL support
 
+from .mNotProvided import *;
+
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
 # bug, where "too long" is defined by the following value:
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
-def fxFirstNonNone(*txArguments):
-  for xArgument in txArguments:
-    if xArgument is not None:
-      return xArgument;
-  return None;
-
 class iHTTPClient(cWithCallbacks):
-  uzDefaultMaxNumberOfConnectionsToServer = None;
-  nzDefaultConnectTimeoutInSeconds = None;
-  nzDefaultSecureTimeoutInSeconds = None;
-  nzDefaultTransactionTimeoutInSeconds = None;
+  u0DefaultMaxNumberOfConnectionsToServer = 10;
+  n0zDefaultConnectTimeoutInSeconds = 10;
+  n0zDefaultSecureTimeoutInSeconds = 5;
+  n0zDefaultTransactionTimeoutInSeconds = 10;
   
   @property
   def bStopping(oSelf):
     raise NotImplementedError();
   
-  def foGetProxyServerURLForURL(oSelf):
+  def fo0GetProxyServerURLForURL(oSelf):
     raise NotImplementedError();
   
   @ShowDebugOutput
-  def fozGetResponseForURL(oSelf,
+  def fo0GetResponseForURL(oSelf,
     oURL,
-    szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    uzMaxStatusLineSize = None,
-    uzMaxHeaderNameSize = None,
-    uzMaxHeaderValueSize = None,
-    uzMaxNumberOfHeaders = None,
-    uzMaxBodySize = None,
-    uzMaxChunkSize = None,
-    uzMaxNumberOfChunks = None,
-    uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
+    szMethod = zNotProvided, szVersion = zNotProvided, o0zHeaders = zNotProvided, s0Body = None, s0Data = None, a0sBodyChunks = None,
+    u0zMaxStatusLineSize = zNotProvided,
+    u0zMaxHeaderNameSize = zNotProvided,
+    u0zMaxHeaderValueSize = zNotProvided,
+    u0zMaxNumberOfHeaders = zNotProvided,
+    u0zMaxBodySize = zNotProvided,
+    u0zMaxChunkSize = zNotProvided,
+    u0zMaxNumberOfChunks = zNotProvided,
+    u0MaxNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
     if oSelf.bStopping:
       fShowDebugOutput("Stopping.");
       return None;
     oRequest = oSelf.foGetRequestForURL(
-      oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks
+      oURL, szMethod, szVersion, o0zHeaders, s0Body, s0Data, a0sBodyChunks
     );
-    ozResponse = oSelf.fozGetResponseForRequestAndURL(
+    o0Response = oSelf.fo0GetResponseForRequestAndURL(
       oRequest, oURL,
-      uzMaxStatusLineSize = uzMaxStatusLineSize,
-      uzMaxHeaderNameSize = uzMaxHeaderNameSize,
-      uzMaxHeaderValueSize = uzMaxHeaderValueSize,
-      uzMaxNumberOfHeaders = uzMaxNumberOfHeaders,
-      uzMaxBodySize = uzMaxBodySize,
-      uzMaxChunkSize = uzMaxChunkSize,
-      uzMaxNumberOfChunks = uzMaxNumberOfChunks,
-      uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
+      u0zMaxStatusLineSize = u0zMaxStatusLineSize,
+      u0zMaxHeaderNameSize = u0zMaxHeaderNameSize,
+      u0zMaxHeaderValueSize = u0zMaxHeaderValueSize,
+      u0zMaxNumberOfHeaders = u0zMaxNumberOfHeaders,
+      u0zMaxBodySize = u0zMaxBodySize,
+      u0zMaxChunkSize = u0zMaxChunkSize,
+      u0zMaxNumberOfChunks = u0zMaxNumberOfChunks,
+      u0MaxNumberOfChunksBeforeDisconnecting = u0MaxNumberOfChunksBeforeDisconnecting,
     );
     if oSelf.bStopping:
       fShowDebugOutput("Stopping.");
       return None;
-    assert ozResponse, \
-        "Expected a response but got %s" % repr(ozResponse);
-    return ozResponse;
+    assert o0Response, \
+        "Expected a response but got %s" % repr(o0Response);
+    return o0Response;
   
   @ShowDebugOutput
-  def ftozGetRequestAndResponseForURL(oSelf,
+  def fto0GetRequestAndResponseForURL(oSelf,
     oURL,
-    szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    uzMaxStatusLineSize = None,
-    uzMaxHeaderNameSize = None,
-    uzMaxHeaderValueSize = None,
-    uzMaxNumberOfHeaders = None,
-    uzMaxBodySize = None,
-    uzMaxChunkSize = None,
-    uzMaxNumberOfChunks = None,
-    uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
+    szMethod = zNotProvided, szVersion = zNotProvided, o0zHeaders = zNotProvided, s0Body = None, s0Data = None, a0sBodyChunks = None,
+    u0zMaxStatusLineSize = zNotProvided,
+    u0zMaxHeaderNameSize = zNotProvided,
+    u0zMaxHeaderValueSize = zNotProvided,
+    u0zMaxNumberOfHeaders = zNotProvided,
+    u0zMaxBodySize = zNotProvided,
+    u0zMaxChunkSize = zNotProvided,
+    u0zMaxNumberOfChunks = zNotProvided,
+    u0MaxNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
     if oSelf.bStopping:
       fShowDebugOutput("Stopping.");
       return (None, None);
     oRequest = oSelf.foGetRequestForURL(
-      oURL, szMethod, szVersion, ozHeaders, szBody, szData, azsBodyChunks
+      oURL, szMethod, szVersion, o0zHeaders, s0Body, s0Data, a0sBodyChunks
     );
-    ozResponse = oSelf.fozGetResponseForRequestAndURL(
+    o0Response = oSelf.fo0GetResponseForRequestAndURL(
       oRequest, oURL,
-      uzMaxStatusLineSize = uzMaxStatusLineSize,
-      uzMaxHeaderNameSize = uzMaxHeaderNameSize,
-      uzMaxHeaderValueSize = uzMaxHeaderValueSize,
-      uzMaxNumberOfHeaders = uzMaxNumberOfHeaders,
-      uzMaxBodySize = uzMaxBodySize,
-      uzMaxChunkSize = uzMaxChunkSize,
-      uzMaxNumberOfChunks = uzMaxNumberOfChunks,
-      uzMaximumNumberOfChunksBeforeDisconnecting = uzMaximumNumberOfChunksBeforeDisconnecting,
+      u0zMaxStatusLineSize = u0zMaxStatusLineSize,
+      u0zMaxHeaderNameSize = u0zMaxHeaderNameSize,
+      u0zMaxHeaderValueSize = u0zMaxHeaderValueSize,
+      u0zMaxNumberOfHeaders = u0zMaxNumberOfHeaders,
+      u0zMaxBodySize = u0zMaxBodySize,
+      u0zMaxChunkSize = u0zMaxChunkSize,
+      u0zMaxNumberOfChunks = u0zMaxNumberOfChunks,
+      u0MaxNumberOfChunksBeforeDisconnecting = u0MaxNumberOfChunksBeforeDisconnecting,
     );
     if oSelf.bStopping:
       fShowDebugOutput("Stopping.");
       return (None, None);
-    assert ozResponse, \
-        "Expected a response but got %s" % repr(ozResponse);
-    return (oRequest, ozResponse);
+    assert o0Response, \
+        "Expected a response but got %s" % repr(o0Response);
+    return (oRequest, o0Response);
   
   @ShowDebugOutput
   def foGetRequestForURL(oSelf,
     oURL, 
-    szMethod = None, szVersion = None, ozHeaders = None, szBody = None, szData = None, azsBodyChunks = None,
-    ozAdditionalHeaders = None, bAutomaticallyAddContentLengthHeader = False
+    szMethod = zNotProvided, szVersion = zNotProvided, o0zHeaders = zNotProvided, s0Body = None, s0Data = None, a0sBodyChunks = None,
+    o0AdditionalHeaders = None, bAutomaticallyAddContentLengthHeader = False
   ):
-    oProxyServerURL = oSelf.foGetProxyServerURLForURL(oURL);
+    o0ProxyServerURL = oSelf.fo0GetProxyServerURLForURL(oURL);
     if oSelf.bStopping:
       fShowDebugOutput("Stopping.");
       return None;
-    if oProxyServerURL is not None and ozHeaders is not None:
+    if o0ProxyServerURL is not None and fbIsProvided(o0zHeaders) and o0zHeaders is not None:
       for sName in ["Proxy-Authenticate", "Proxy-Authorization", "Proxy-Connection"]:
-        ozHeader = oHeaders.fozGetUniqueHeaderForName(sName);
-        assert ozHeader is None, \
-            "%s header is not implemented!" % repr(ozHeader.sName);
+        o0Header = o0zHeaders.fo0GetUniqueHeaderForName(sName);
+        assert o0Header is None, \
+            "%s header is not implemented!" % repr(o0Header.sName);
     oRequest = cHTTPConnection.cHTTPRequest(
       # When sending requests to a proxy, secure requests are forwarded directly to the server (after an initial
       # CONNECT request), so the URL in the request must be relative. Non-secure requests are made to the proxy,
       # which most have the absolute URL.
-      sURL = oURL.sRelative if oProxyServerURL is None or oURL.bSecure else oURL.sAbsolute,
+      sURL = oURL.sRelative if o0ProxyServerURL is None or oURL.bSecure else oURL.sAbsolute,
       szMethod = szMethod,
       szVersion = szVersion,
-      ozHeaders = ozHeaders,
-      szBody = szBody,
-      szData = szData,
-      azsBodyChunks = azsBodyChunks,
-      ozAdditionalHeaders = ozAdditionalHeaders,
+      o0zHeaders = o0zHeaders,
+      s0Body = s0Body,
+      s0Data = s0Data,
+      a0sBodyChunks = a0sBodyChunks,
+      o0AdditionalHeaders = o0AdditionalHeaders,
       bAutomaticallyAddContentLengthHeader = bAutomaticallyAddContentLengthHeader
     );
-    if not oRequest.oHeaders.fozGetUniqueHeaderForName("Host"):
+    if not oRequest.oHeaders.fo0GetUniqueHeaderForName("Host"):
       oRequest.oHeaders.foAddHeaderForNameAndValue("Host", oURL.sHostnameAndPort);
-    if not oRequest.oHeaders.fozGetUniqueHeaderForName("Accept-Encoding"):
+    if not oRequest.oHeaders.fo0GetUniqueHeaderForName("Accept-Encoding"):
       oRequest.oHeaders.foAddHeaderForNameAndValue("Accept-Encoding", ", ".join(oRequest.asSupportedCompressionTypes));
     return oRequest;
   
   @ShowDebugOutput
-  def fozGetResponseForRequestAndURL(oSelf,
+  def fo0GetResponseForRequestAndURL(oSelf,
     oRequest, oURL,
-    uzMaxStatusLineSize = None,
-    uzMaxHeaderNameSize = None,
-    uzMaxHeaderValueSize = None,
-    uzMaxNumberOfHeaders = None,
-    uzMaxBodySize = None,
-    uzMaxChunkSize = None,
-    uzMaxNumberOfChunks = None,
-    uzMaximumNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
+    u0zMaxStatusLineSize = zNotProvided,
+    u0zMaxHeaderNameSize = zNotProvided,
+    u0zMaxHeaderValueSize = zNotProvided,
+    u0zMaxNumberOfHeaders = zNotProvided,
+    u0zMaxBodySize = zNotProvided,
+    u0zMaxChunkSize = zNotProvided,
+    u0zMaxNumberOfChunks = zNotProvided,
+    u0MaxNumberOfChunksBeforeDisconnecting = None, # disconnect and return response once this many chunks are received.
   ):
     raise NotImplementedError();
   
