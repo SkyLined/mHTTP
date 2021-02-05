@@ -99,6 +99,7 @@ class cHTTPClientUsingAutomaticProxyServer(iHTTPClient, cWithCallbacks):
     oSelf.__oTerminatedLock = cLock("%s.__oTerminatedLock" % oSelf.__class__.__name__, bLocked = True);
     
     oSelf.fAddEvents(
+      "proxy selected",
       "new direct client", "new client using proxy server",
       "connect failed", "new connection",
       "request sent", "response received", "request sent and response received",
@@ -254,6 +255,7 @@ class cHTTPClientUsingAutomaticProxyServer(iHTTPClient, cWithCallbacks):
       fShowDebugOutput("Stopping.");
       return None;
     o0ProxyServerURL = oSelf.fo0GetProxyServerURLForURL(oURL);
+    oSelf.fFireCallbacks("proxy selected", o0ProxyServerURL, oRequest, oURL);
     bNewClient = False;
     if o0ProxyServerURL is None:
       if oSelf.__oDirectHTTPClient is None:
@@ -272,10 +274,10 @@ class cHTTPClientUsingAutomaticProxyServer(iHTTPClient, cWithCallbacks):
       else:
         oHTTPClient = oSelf.__oDirectHTTPClient;
     else:
-      sLowerPorxyServerURL = str(o0ProxyServerURL).lower();
-      oHTTPClient = oSelf.__doHTTPClientUsingProxyServer_by_sLowerProxyServerURL.get(sLowerPorxyServerURL);
+      sLowerProxyServerURL = str(o0ProxyServerURL).lower();
+      oHTTPClient = oSelf.__doHTTPClientUsingProxyServer_by_sLowerProxyServerURL.get(sLowerProxyServerURL);
       if oHTTPClient is None:
-        oHTTPClient = oSelf.__doHTTPClientUsingProxyServer_by_sLowerProxyServerURL[sLowerPorxyServerURL] = cHTTPClientUsingProxyServer(
+        oHTTPClient = oSelf.__doHTTPClientUsingProxyServer_by_sLowerProxyServerURL[sLowerProxyServerURL] = cHTTPClientUsingProxyServer(
           o0ProxyServerURL,
           bAllowUnverifiableCertificatesForProxy = oSelf.__bAllowUnverifiableCertificatesForProxy,
           bCheckProxyHostname = oSelf.__bCheckProxyHostname,
@@ -317,11 +319,14 @@ class cHTTPClientUsingAutomaticProxyServer(iHTTPClient, cWithCallbacks):
   def __fHandleNewConnectionCallbackFromHTTPClient(oSelf, oHTTPClient, oConnection):
     oSelf.fFireCallbacks("new connection", oHTTPClient, oConnection);
   def __fHandleRequestSentCallbackFromHTTPClient(oSelf, oHTTPClient, oConnection, oRequest):
-    oSelf.fFireCallbacks("request sent", oHTTPClient, oConnection, oRequest);
+    o0ProxyURL = None if oHTTPClient is oSelf.__oDirectHTTPClient else oHTTPClient.oProxyServerURL;
+    oSelf.fFireCallbacks("request sent", oHTTPClient, o0ProxyURL, oConnection, oRequest);
   def __fHandleResponseReceivedCallbackFromHTTPClient(oSelf, oHTTPClient, oConnection, oReponse):
-    oSelf.fFireCallbacks("response received", oHTTPClient, oConnection, oReponse);
+    o0ProxyURL = None if oHTTPClient is oSelf.__oDirectHTTPClient else oHTTPClient.oProxyServerURL;
+    oSelf.fFireCallbacks("response received", oHTTPClient, o0ProxyURL, oConnection, oReponse);
   def __fHandleRequestSentAndResponseReceivedCallbackFromHTTPClient(oSelf, oHTTPClient, oConnection, oRequest, oReponse):
-    oSelf.fFireCallbacks("request sent and response received", oHTTPClient, oConnection, oRequest, oReponse);
+    o0ProxyURL = None if oHTTPClient is oSelf.__oDirectHTTPClient else oHTTPClient.oProxyServerURL;
+    oSelf.fFireCallbacks("request sent and response received", oHTTPClient, o0ProxyURL, oConnection, oRequest, oReponse);
   def __fHandleConnectionTerminatedCallbackFromHTTPClient(oSelf, oHTTPClient, oConnection):
     oSelf.fFireCallbacks("connection terminated", oHTTPClient, oConnection);
     
