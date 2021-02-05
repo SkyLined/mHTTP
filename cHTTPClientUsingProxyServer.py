@@ -51,7 +51,7 @@ class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
     bAllowUnverifiableCertificates = False,
     bCheckHostname = True,
   ):
-    oSelf.__oProxyServerURL = oProxyServerURL;
+    oSelf.oProxyServerURL = oProxyServerURL;
     oSelf.__bAllowUnverifiableCertificatesForProxy = bAllowUnverifiableCertificatesForProxy;
     oSelf.__bCheckProxyHostname = bCheckProxyHostname;
     
@@ -177,7 +177,7 @@ class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
     return oSelf.__oTerminatedLock.fbWait(nTimeoutInSeconds);
   
   def fo0GetProxyServerURLForURL(oSelf, oURL):
-    return oSelf.__oProxyServerURL.foClone();
+    return oSelf.oProxyServerURL.foClone();
   
   @ShowDebugOutput
   def fo0GetResponseForRequestAndURL(oSelf,
@@ -347,10 +347,10 @@ class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
     n0zConnectTimeoutInSeconds, 
   ):
     # Create a new socket and return that.
-    fShowDebugOutput("Connecting to %s..." % oSelf.__oProxyServerURL);
+    fShowDebugOutput("Connecting to %s..." % oSelf.oProxyServerURL);
     oConnection = cHTTPConnection.foConnectTo(
-      sHostname = oSelf.__oProxyServerURL.sHostname,
-      uPort = oSelf.__oProxyServerURL.uPort,
+      sHostname = oSelf.oProxyServerURL.sHostname,
+      uPort = oSelf.oProxyServerURL.uPort,
       n0zConnectTimeoutInSeconds = n0zConnectTimeoutInSeconds,
       o0SSLContext = oSelf.__o0ProxySSLContext,
       n0zSecureTimeoutInSeconds = oSelf.__n0zSecureConnectionToProxyTimeoutInSeconds,
