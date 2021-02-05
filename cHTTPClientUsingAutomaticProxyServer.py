@@ -15,6 +15,10 @@ except: # Do nothing if not available.
 from mMultiThreading import cLock, cWithCallbacks;
 from mHTTPProtocol import cURL;
 from mNotProvided import *;
+try: # SSL support is optional.
+  from mSSL import cCertificateStore as c0CertificateStore;
+except:
+  c0CertificateStore = None; # No SSL support
 
 from .cHTTPClient import cHTTPClient;
 from .cHTTPClientUsingProxyServer import cHTTPClientUsingProxyServer;
@@ -62,7 +66,7 @@ class cHTTPClientUsingAutomaticProxyServer(iHTTPClient, cWithCallbacks):
     # these instances.
     oSelf.__o0CertificateStore = (
       o0zCertificateStore if fbIsProvided(o0zCertificateStore) else
-      czCertificateStore() if czCertificateStore else
+      c0CertificateStore() if c0CertificateStore else
       None
     );
     oSelf.__bAllowUnverifiableCertificatesForProxy = bAllowUnverifiableCertificatesForProxy;
