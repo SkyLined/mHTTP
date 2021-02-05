@@ -382,7 +382,7 @@ class cHTTPClientUsingProxyServer(iHTTPClient, cWithCallbacks):
     oConnectRequest = cHTTPRequest(
       sURL = oServerBaseURL.sAddress,
       szMethod = "CONNECT",
-      o0Headers = cHTTPHeaders.foFromDict({
+      o0zHeaders = cHTTPHeaders.foFromDict({
         "Host": oServerBaseURL.sAddress,
         "Connection": "Keep-Alive",
       }),
