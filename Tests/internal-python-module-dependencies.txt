@@ -8,7 +8,6 @@ ctypes
 datetime
 dis
 fnmatch
-future__
 gc
 hashlib
 heapq
@@ -30,7 +29,6 @@ socket
 ssl
 string
 strop
-struct
 subprocess
 textwrap
 thread
