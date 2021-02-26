@@ -52,7 +52,7 @@ class cHTTPClientUsingAutomaticProxyServer(iHTTPClient, cWithCallbacks):
   ):
     oSelf.__oWinHTTPDLL = foLoadWinHTTPDLL();
     oSelf.__hInternet = oSelf.__oWinHTTPDLL.WinHttpOpen(
-      foCreateBuffer("User-Agent", bUnicode = True).foCreatePointer(LPCWSTR), # LPCWSTR pszAgentW
+      LPCWSTR("User-Agent"), # LPCWSTR pszAgentW
       WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, # DWORD dwAccessType
       WINHTTP_NO_PROXY_NAME, # LPCWSTR pszProxyW
       WINHTTP_NO_PROXY_BYPASS, # LPCWSTR pszProxyBypassW
@@ -197,7 +197,7 @@ class cHTTPClientUsingAutomaticProxyServer(iHTTPClient, cWithCallbacks):
     oWinHTTPProxyInfo = WINHTTP_PROXY_INFO();
     bSuccess = oSelf.__oWinHTTPDLL.WinHttpGetProxyForUrl(
       oSelf.__hInternet, # HINTERNET hSession
-      foCreateBuffer(str(oURL), bUnicode = True).foCreatePointer(LPCWSTR), # LPCWSTRlpcwszUrl
+      LPCWSTR(str(oURL)), # LPCWSTRlpcwszUrl
       oWinHTTPAutoProxyOptions.foCreatePointer(), # WINHTTP_AUTOPROXY_OPTIONS *pAutoProxyOptions,
       oWinHTTPProxyInfo.foCreatePointer(), # WINHTTP_PROXY_INFO *pProxyInfo
     );
