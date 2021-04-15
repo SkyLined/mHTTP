@@ -1,6 +1,7 @@
 import re;
 
-from mWindowsSDK import *;
+#from mWindowsSDK import *;
+from mWindowsSDK.mWinHTTP import *;
 
 try: # mDebugOutput use is Optional
   from mDebugOutput import *;
@@ -50,8 +51,7 @@ class cHTTPClientUsingAutomaticProxyServer(iHTTPClient, cWithCallbacks):
     n0zSecureConnectionToServerTimeoutInSeconds = zNotProvided,
     bAllowUnverifiableCertificates = False, bCheckHostname = True,
   ):
-    oSelf.__oWinHTTPDLL = foLoadWinHTTPDLL();
-    oSelf.__hInternet = oSelf.__oWinHTTPDLL.WinHttpOpen(
+    oSelf.__hInternet = oWinHTTPDLL.WinHttpOpen(
       LPCWSTR("User-Agent"), # LPCWSTR pszAgentW
       WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, # DWORD dwAccessType
       WINHTTP_NO_PROXY_NAME, # LPCWSTR pszProxyW
@@ -195,7 +195,7 @@ class cHTTPClientUsingAutomaticProxyServer(iHTTPClient, cWithCallbacks):
       True, # BOOL    fAutoLogonIfChallenged;
     );
     oWinHTTPProxyInfo = WINHTTP_PROXY_INFO();
-    bSuccess = oSelf.__oWinHTTPDLL.WinHttpGetProxyForUrl(
+    bSuccess = oWinHTTPDLL.WinHttpGetProxyForUrl(
       oSelf.__hInternet, # HINTERNET hSession
       LPCWSTR(str(oURL)), # LPCWSTRlpcwszUrl
       oWinHTTPAutoProxyOptions.foCreatePointer(), # WINHTTP_AUTOPROXY_OPTIONS *pAutoProxyOptions,
